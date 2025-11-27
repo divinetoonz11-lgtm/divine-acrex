@@ -1,0 +1,49 @@
+﻿import React from "react";
+import HeroSlider from "../components/HeroSlider";
+import SearchBar from "../components/SearchBar";
+import Dealers from "../components/Dealers";
+import ServicesSection from "../components/ServicesSection";
+
+export default function HomePage() {
+  const handleSearch = (query) => {
+    console.log("search:", query);
+  };
+
+  return (
+    <main>
+
+      {/* HERO SLIDER */}
+      <HeroSlider />
+
+      {/* SEARCH BAR */}
+      <div style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: "0 16px",
+        position: "relative",
+        top: "-40px"
+      }}>
+        <SearchBar onSearch={handleSearch} />
+      </div>
+
+      {/* TOP INFO */}
+      <section style={{ width: "100%", background: "#fff", padding: "32px 0" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", textAlign: "center" }}>
+          <h2 style={{ fontSize: 28, fontWeight: 700 }}>
+            Find the perfect property in your city
+          </h2>
+          <p style={{ color: "#6b7280" }}>
+            100% verified listings • Trusted dealers • Fast responses
+          </p>
+        </div>
+      </section>
+
+      {/* DEALERS */}
+      <Dealers />
+
+      {/* SERVICES */}
+      <ServicesSection />
+
+    </main>
+  );
+}

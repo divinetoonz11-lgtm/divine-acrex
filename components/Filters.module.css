@@ -1,0 +1,59 @@
+.filterContainer {
+  width: 100%;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: -80px;
+  position: relative;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.tabRow {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 10px 20px;
+  background: #eee;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.activeTab {
+  padding: 10px 20px;
+  background: #0066ff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+}
+
+.filtersGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.filtersGrid select {
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.searchBtnWrap {
+  margin-top: 20px;
+  text-align: right;
+}
+
+.searchButton {
+  padding: 12px 30px;
+  background: #ff6600;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 17px;
+  cursor: pointer;
+}
