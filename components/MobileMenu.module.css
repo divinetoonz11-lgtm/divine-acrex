@@ -1,0 +1,61 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9999;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.menu {
+  width: 85%;
+  max-width: 320px;
+  height: 100%;
+  background: linear-gradient(180deg,#315a9d,#27457a);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.menu a,
+.menu button {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 10px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.menu a:hover,
+.menu button:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.close {
+  align-self: flex-end;
+  font-size: 20px;
+  background: none;
+  border: none;
+  color: #fff;
+}
+
+.postBtn {
+  margin-top: 10px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.postBtn span {
+  background: #22c55e;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  margin-left: 6px;
+}

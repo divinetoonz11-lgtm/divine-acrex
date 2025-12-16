@@ -1,0 +1,292 @@
+// pages/admin_dashboard.jsx
+import React, { useEffect, useState } from "react";
+
+export default function AdminDashboard() {
+  const [allowed, setAllowed] = useState(false);
+  const [tab, setTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+
+  const [overview, setOverview] = useState({});
+  const [users, setUsers] = useState([]);
+  const [dealers, setDealers] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [filters, setFilters] = useState([]);
+
+  // ⭐ Admin protection (FIXED)
+  useEffect(() => {
+    const ok = localStorage.getItem("adminAuth");  // ✔ FIXED
+    if (ok === "true") {
+      setAllowed(true);
+      loadAllData();
+    } else {
+      window.location.href = "/admin_login";
+    }
+  }, []);
+
+  // ⭐ Fetch all admin data
+  async function loadAllData() {
+    try {
+      const res = await fetch("/api/admin/overview");
+      const data = await res.json();
+
+      setOverview(data.overview || {});
+      setUsers(data.users || []);
+      setDealers(data.dealers || []);
+      setProperties(data.properties || []);
+      setFilters(data.filters || []);
+
+      setLoading(false);
+    } catch (e) {
+      console.log("Admin fetch failed", e);
+    }
+  }
+
+  if (!allowed) return <div style={{ padding: 40 }}>Checking admin access…</div>;
+  if (loading) return <div style={{ padding: 40 }}>Loading admin data…</div>;
+
+  return (
+    <div style={ST.page}>
+
+      {/* TOPBAR */}
+      <div style={ST.topbar}>
+        <div style={{ fontSize: 22, fontWeight: 800 }}>🔐 Admin Dashboard</div>
+
+        <button
+          onClick={() => {
+            localStorage.removeItem("adminAuth");  // ✔ FIXED
+            window.location.href = "/admin_login";
+          }}
+          style={ST.logout}
+        >
+          Logout
+        </button>
+      </div>
+
+      {/* GRID */}
+      <div style={ST.grid}>
+
+        {/* SIDEBAR */}
+        <aside style={ST.sidebar}>
+          {["overview", "users", "dealers", "properties", "filters", "pending", "settings"]
+            .map((t) => (
+              <div
+                key={t}
+                style={tab === t ? ST.active : ST.item}
+                onClick={() => setTab(t)}
+              >
+                {t.toUpperCase()}
+              </div>
+            ))}
+        </aside>
+
+        {/* MAIN CONTENT */}
+        <main style={ST.main}>
+
+          {/* OVERVIEW TAB */}
+          {tab === "overview" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Admin Overview</h2>
+
+              <div style={ST.statsRow}>
+                <div style={ST.statBox}>
+                  <div style={ST.num}>{overview.users}</div>
+                  <div style={ST.label}>Users</div>
+                </div>
+
+                <div style={ST.statBox}>
+                  <div style={ST.num}>{overview.dealers}</div>
+                  <div style={ST.label}>Dealers</div>
+                </div>
+
+                <div style={ST.statBox}>
+                  <div style={ST.num}>{overview.properties}</div>
+                  <div style={ST.label}>Properties</div>
+                </div>
+
+                <div style={ST.statBox}>
+                  <div style={ST.num}>{overview.pending}</div>
+                  <div style={ST.label}>Pending</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* USERS TAB */}
+          {tab === "users" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>All Users</h2>
+              {users.map((u) => (
+                <div key={u._id} style={ST.listItem}>
+                  <strong>{u.name}</strong>
+                  <div>📞 {u.mobile}</div>
+                  <div>✉️ {u.email}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* DEALERS TAB */}
+          {tab === "dealers" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>All Dealers</h2>
+              {dealers.map((d) => (
+                <div key={d._id} style={ST.listItem}>
+                  <strong>{d.name}</strong>
+                  <div>📞 {d.mobile}</div>
+                  <div>✉️ {d.email}</div>
+                  <div>Status: {d.status}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* PROPERTIES TAB */}
+          {tab === "properties" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>All Properties</h2>
+
+              {properties.map((p) => (
+                <div key={p._id} style={ST.listItem}>
+                  <strong>{p.title}</strong>
+                  <div>Status: {p.status}</div>
+                  <div>Dealer: {p.dealerName}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* FILTERS TAB */}
+          {tab === "filters" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Filters Configuration</h2>
+
+              {filters.map((f) => (
+                <div key={f._id} style={ST.listItem}>
+                  <strong>{f.group}</strong>
+                  <div>Options: {f.options?.length}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* PENDING TAB */}
+          {tab === "pending" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Pending Approvals</h2>
+              <div>{overview.pending} pending items</div>
+            </div>
+          )}
+
+          {/* SETTINGS TAB */}
+          {tab === "settings" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Admin Settings</h2>
+              <div>Change Password</div>
+              <div>Site Config</div>
+              <div>Security Controls</div>
+            </div>
+          )}
+
+        </main>
+      </div>
+
+    </div>
+  );
+}
+
+/* ===================== STYLES ===================== */
+const ST = {
+  page: { minHeight: "100vh", background: "#f4f6fa", padding: 20, fontFamily: "Inter" },
+
+  topbar: {
+    maxWidth: 1200,
+    margin: "0 auto",
+    padding: "14px 18px",
+    background: "#0b6cff",
+    color: "#fff",
+    borderRadius: 10,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  logout: {
+    padding: "8px 16px",
+    background: "#ef4444",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontWeight: 600,
+  },
+
+  grid: {
+    maxWidth: 1200,
+    margin: "20px auto",
+    display: "grid",
+    gridTemplateColumns: "220px 1fr",
+    gap: 20,
+  },
+
+  sidebar: {
+    background: "#fff",
+    padding: 16,
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  },
+
+  item: {
+    padding: "10px 12px",
+    borderRadius: 8,
+    background: "#f8fafc",
+    cursor: "pointer",
+    fontWeight: 600,
+  },
+
+  active: {
+    padding: "10px 12px",
+    borderRadius: 8,
+    background: "#0b6cff",
+    color: "#fff",
+    cursor: "pointer",
+    fontWeight: 700,
+  },
+
+  card: {
+    background: "#fff",
+    padding: 20,
+    borderRadius: 10,
+    boxShadow: "0 4px 14px rgba(0,0,0,0.05)",
+    border: "1px solid #e5e7eb",
+  },
+
+  h2: { margin: 0, marginBottom: 14, fontSize: 20, fontWeight: 800 },
+
+  statsRow: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4,1fr)",
+    gap: 16,
+  },
+
+  statBox: {
+    background: "#eef4ff",
+    padding: 16,
+    borderRadius: 10,
+    textAlign: "center",
+  },
+
+  num: { fontSize: 26, fontWeight: 900, color: "#0b6cff" },
+
+  label: { marginTop: 6, fontSize: 14, color: "#475569" },
+
+  listItem: {
+    padding: 12,
+    borderRadius: 8,
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+    marginBottom: 10,
+  },
+};

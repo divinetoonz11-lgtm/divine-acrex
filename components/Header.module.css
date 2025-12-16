@@ -1,0 +1,211 @@
+/* ======================================================
+   Header.module.css
+   FINAL – Desktop SAFE • Mobile 3 Icons FIXED
+   ====================================================== */
+
+/* ================= HEADER WRAP ================= */
+.headerWrap {
+  width: 100%;
+  background: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+/* ================= INNER ================= */
+.headerInner {
+  max-width: 1350px;
+  margin: 0 auto;
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+/* ================= LEFT ================= */
+.left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logoLink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.logoBox {
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #e6e6e6;
+  background: #ffffff;
+}
+
+.logoImg {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.logoText {
+  font-size: 15px;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+}
+
+/* ================= CENTER (DESKTOP NAV) ================= */
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+}
+
+.navBox {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg,#315a9d,#27457a);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.10);
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.navList {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.navLink {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 8px;
+  border-radius: 999px;
+}
+
+.navLink:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+.postPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.18);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.freeChip {
+  background: #22c55e;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* ================= RIGHT ICONS ================= */
+.right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: end;      /* 🔑 force right corner */
+}
+
+/* ICON BASE */
+.iconBtnWhite {
+  height: 38px;
+  width: 38px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.iconImg {
+  width: 22px;
+  height: 22px;
+}
+
+/* LOGIN AVATAR */
+.iconAvatar {
+  height: 38px;
+  width: 38px;
+  border-radius: 50%;
+  background: linear-gradient(180deg,#2f78c6,#1f5aa3);
+}
+
+.avatarSvg {
+  width: 18px;
+  height: 18px;
+  fill: #ffffff;
+}
+
+/* MOBILE MENU BUTTON */
+.mobileMenuBtn {
+  display: none;
+}
+
+/* ================= MOBILE RULES ================= */
+@media (max-width: 768px) {
+
+  /* hide desktop nav */
+  .center {
+    display: none;
+  }
+
+  /* keep brand name visible */
+  .logoText {
+    display: inline;
+    font-size: 14px;
+  }
+
+  /* right icons sizing */
+  .iconBtnWhite,
+  .iconAvatar {
+    height: 36px;
+    width: 36px;
+  }
+
+  /* show ☰ menu */
+  .mobileMenuBtn {
+    display: inline-flex;
+    height: 36px;
+    width: 36px;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #e6e6e6;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  /* final spacing from screen edge */
+  .right {
+    gap: 10px;
+    padding-right: 4px;
+  }
+}

@@ -1,0 +1,172 @@
+﻿/* container */
+.heroWrap {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+/* track & slides */
+.sliderTrack {
+  display: flex;
+  transition: transform 0.7s ease-in-out;
+  will-change: transform;
+}
+
+/* each slide */
+.slide {
+  min-width: 100%;
+  height: 640px;            /* ⬆️ desktop BIG (580 → 640) */
+  overflow: hidden;
+  position: relative;
+}
+
+.slideImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* SEARCH OVERLAY */
+.searchOverlay {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -52px;            /* ⬆️ more overlap */
+  width: 100%;
+  max-width: 1100px;
+  padding: 0 16px;
+  z-index: 30;
+  pointer-events: auto;
+}
+
+/* search form shell */
+.searchForm {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: #ffffff;
+  padding: 18px;            /* ⬆️ slightly bigger */
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(16,24,40,0.14);
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* individual field wrapper */
+.field {
+  display: flex;
+  align-items: center;
+}
+
+/* selects */
+.select {
+  padding: 13px 15px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  font-size: 15px;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+/* input */
+.input {
+  padding: 15px 18px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* button */
+.btn {
+  padding: 14px 26px;
+  border-radius: 999px;
+  background: #6b21a8;
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 15.5px;
+  white-space: nowrap;
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+/* medium screens */
+@media (max-width: 1100px) {
+  .slide {
+    height: 560px;          /* ⬆️ 500 → 560 */
+  }
+  .searchOverlay {
+    max-width: 920px;
+    bottom: -46px;
+  }
+}
+
+/* tablets & mobiles */
+@media (max-width: 768px) {
+  .slide {
+    height: 440px;          /* ⬆️ 400 → 440 */
+  }
+
+  .searchOverlay {
+    bottom: -38px;
+    padding: 0 12px;
+    max-width: 760px;
+  }
+
+  .searchForm {
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
+  }
+
+  .select,
+  .input {
+    width: 100%;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+  }
+}
+
+/* extra small phones */
+@media (max-width: 420px) {
+  .slide {
+    height: 360px;          /* ⬆️ 330 → 360 */
+  }
+  .searchOverlay {
+    bottom: -32px;
+    padding: 0 8px;
+  }
+  .searchForm {
+    padding: 12px;
+    gap: 10px;
+  }
+  .btn {
+    font-size: 14.5px;
+    padding: 12px;
+  }
+}
+
+/* accessibility helper */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}

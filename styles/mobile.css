@@ -1,0 +1,17 @@
+/* ===== FIX DOUBLE HEADER ON MOBILE ===== */
+
+/* Hide DESKTOP Header on mobile */
+@media (max-width: 768px) {
+  header[class*="headerWrap"] {
+    display: none !important;
+  }
+}
+
+/* Ensure MobileHeader visible */
+@media (max-width: 768px) {
+  .mobile-header,
+  .mobile-only,
+  header[class*="mobile"] {
+    display: block !important;
+  }
+}

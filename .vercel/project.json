@@ -1,0 +1,16 @@
+{
+  "projectId": "prj_IA28mlFHBLwNrVu641plYzz9i6XL",
+  "orgId": "team_UcjNqjBPzqxwMJVpXLM6fkO7",
+  "projectName": "divine99acres-web",
+  "settings": {
+    "createdAt": 1764241724824,
+    "framework": "nextjs",
+    "devCommand": null,
+    "installCommand": "npm install --legacy-peer-deps",
+    "buildCommand": "npm run build",
+    "outputDirectory": null,
+    "rootDirectory": null,
+    "directoryListing": false,
+    "nodeVersion": "24.x"
+  }
+}

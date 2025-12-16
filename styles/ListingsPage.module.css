@@ -1,0 +1,318 @@
+/* ===========================
+   ListingsPage.module.css
+   Replace entire file with this
+   =========================== */
+
+/* ========== Page wrapper ========== */
+.pageWrapper {
+  max-width: 1350px;
+  margin: 0 auto;
+  padding: 0 20px;
+  box-sizing: border-box;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+  color: #111827;
+  background: transparent;
+}
+
+/* ========================================= */
+/*            SEARCH BAR — STABLE ROW        */
+/*  This keeps the search bar exactly same   */
+/* ========================================= */
+.searchBarWrap {
+  width: 100%;
+  background: transparent;
+  margin: 18px auto 22px;
+  padding: 0 18px;
+  box-sizing: border-box;
+}
+
+.searchInner {
+  display: flex;               /* KEY: row layout */
+  gap: 12px;
+  align-items: center;         /* vertical center */
+  background: rgba(255,255,255,0.98);
+  padding: 14px;
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  max-width: 1250px;
+  margin: 0 auto;
+  flex-wrap: nowrap;           /* do not wrap on desktop */
+}
+
+/* Input / selects inside search bar */
+.txSelect, .catSelect {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  padding: 8px 10px;
+  min-width: 140px;           /* keeps original size */
+  background: #fff;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+.catSelect {
+  min-width: 220px;           /* category slightly larger */
+}
+
+/* main search input expands */
+.searchInput {
+  flex: 1;                    /* takes remaining width */
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  padding: 8px 12px;
+  font-size: 15px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+/* Search button aligned with inputs */
+.searchBtn {
+  background: #6b2f87;        /* purple-ish button like example */
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  min-width: 90px;
+}
+
+/* Small icon/button variations (if any) */
+.searchInner .smallBtn {
+  height: 40px;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+/* ========================================= */
+/*              MAIN LISTINGS GRID           */
+/* ========================================= */
+.listingsGrid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 28px;
+  margin-top: 14px;
+  align-items: start;
+}
+
+/* Right column */
+.resultsColumn {
+  width: 100%;
+}
+
+/* Listing title */
+.resultsTitle {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+/* ========================================= */
+/*        PROPERTY CARD — IMAGE + CONTENT    */
+/* ========================================= */
+.card {
+  display: grid;
+  grid-template-columns: 340px 1fr 130px;
+  gap: 22px;
+  align-items: center;
+  background: #ffffff;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 1px 6px rgba(16,24,40,0.03);
+}
+
+/* Image box */
+.cardImgWrap {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.cardImgWrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Badges and overlay */
+.badges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+}
+
+.badge {
+  background: #ecfdf5;
+  color: #065f46;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* View Photos overlay (top-right) */
+.viewPhotos {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+/* caption bottom-left */
+.cardCaption {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  background: rgba(17,24,39,0.82);
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-top-right-radius: 14px;
+}
+
+/* ========================================= */
+/*                 CONTENT                   */
+/* ========================================= */
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.cardSubtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* Amenities */
+.amenities {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #2563eb;
+}
+
+/* Action buttons */
+.ctaRow {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.btnOutline {
+  border: 1px solid #2563eb;
+  color: #2563eb;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  background: #2563eb;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+
+.viewDetails {
+  color: #2563eb;
+  margin-left: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* PRICE */
+.priceWrap {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.priceTag {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1e40af;
+}
+
+/* cards list spacing */
+.cardsList {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* pagination */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.pagination button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ================= MOBILE ================= */
+@media (max-width: 900px) {
+  .searchInner {
+    flex-direction: column;  /* stack on mobile */
+    align-items: stretch;
+  }
+
+  .listingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .cardImgWrap {
+    height: 260px;
+  }
+
+  .priceWrap {
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+
+  .catSelect {
+    min-width: auto;
+  }
+}

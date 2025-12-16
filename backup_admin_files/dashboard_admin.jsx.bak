@@ -1,0 +1,144 @@
+// pages/dashboard/admin.jsx
+import React from "react";
+import DashboardLayout from "../../components/DashboardLayout";
+
+export default function AdminDashboard() {
+  
+  const stats = [
+    { title: "Total Users", value: 1200, icon: "👤" },
+    { title: "Total Dealers", value: 310, icon: "🏢" },
+    { title: "Properties Listed", value: 5400, icon: "🏠" },
+    { title: "Reports Filed", value: 28, icon: "⚠️" },
+  ];
+
+  const latestUsers = [
+    { name: "Amit Sharma", email: "amit@gmail.com" },
+    { name: "Neha Gupta", email: "neha@gmail.com" },
+    { name: "Suresh Kumar", email: "suresh@gmail.com" },
+  ];
+
+  const latestDealers = [
+    { name: "Dream Homes", city: "Noida" },
+    { name: "SkyBuild Realty", city: "Mumbai" },
+    { name: "RealSpace India", city: "Delhi" },
+  ];
+
+  return (
+    <DashboardLayout title="Admin Dashboard">
+
+      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 20 }}>
+        Admin Dashboard
+      </h1>
+
+      {/* STATS ROW */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 16,
+          marginBottom: 30,
+        }}
+      >
+        {stats.map((s, i) => (
+          <div
+            key={i}
+            style={{
+              padding: 20,
+              background: "#fff",
+              borderRadius: 12,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+            }}
+          >
+            <div style={{ fontSize: 28 }}>{s.icon}</div>
+            <div>
+              <div style={{ fontSize: 14, color: "#6b7280" }}>{s.title}</div>
+              <div style={{ fontSize: 22, fontWeight: 700 }}>{s.value}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* USERS TABLE */}
+      <div
+        style={{
+          padding: 20,
+          background: "#fff",
+          borderRadius: 12,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+          marginBottom: 30,
+        }}
+      >
+        <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>
+          Latest User Registrations
+        </h3>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#f8f8f8" }}>
+              <th style={th}>Name</th>
+              <th style={th}>Email</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {latestUsers.map((u, i) => (
+              <tr key={i}>
+                <td style={td}>{u.name}</td>
+                <td style={td}>{u.email}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* DEALER TABLE */}
+      <div
+        style={{
+          padding: 20,
+          background: "#fff",
+          borderRadius: 12,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+        }}
+      >
+        <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>
+          Latest Dealer Approvals
+        </h3>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#f8f8f8" }}>
+              <th style={th}>Dealer Name</th>
+              <th style={th}>City</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {latestDealers.map((d, i) => (
+              <tr key={i}>
+                <td style={td}>{d.name}</td>
+                <td style={td}>{d.city}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+    </DashboardLayout>
+  );
+}
+
+const th = {
+  textAlign: "left",
+  padding: "12px 10px",
+  fontSize: 14,
+  color: "#6b7280",
+};
+
+const td = {
+  padding: "10px 10px",
+  borderBottom: "1px solid #eee",
+  fontSize: 15,
+};

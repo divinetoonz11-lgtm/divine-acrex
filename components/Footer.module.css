@@ -1,0 +1,226 @@
+﻿/* components/Footer.module.css */
+
+.root {
+  width: 100%;
+  background: #000;
+  color: #fff;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* main black bar */
+.bar {
+  background: #000;
+  padding: 44px 0 20px;
+}
+
+/* inner container */
+.container {
+  max-width: 1240px;
+  width: 92%;
+  margin: 0 auto;
+  display: flex;
+  gap: 36px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+/* column base */
+.col {
+  flex: 1 1 280px;
+  min-width: 240px;
+}
+
+/* brand area */
+.brandWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.dah {
+  font-size: 26px;
+  font-weight: 900;
+  color: #fff;
+}
+
+.company {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+
+/* contact lines */
+.contactLine {
+  color: #cfcfcf;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+/* section title (scoped) */
+.col .sectionTitle {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+/* quick links grid (two columns) */
+.linksGrid {
+  display: flex;
+  gap: 28px;
+}
+
+.linkCol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.linkCol a {
+  color: #d7d7d7;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.linkCol a:hover {
+  color: #fff;
+}
+
+/* subscribe box */
+.subText {
+  color: #c9c9c9;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.subscribeBox {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.emailInput {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+}
+
+.subBtn {
+  padding: 10px 14px;
+  background: #315dff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* social icons row */
+.socialRow {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+  text-decoration: none;
+  transition: transform .14s ease, background .14s ease, opacity .14s ease;
+}
+
+.social svg {
+  color: #fff;
+  width: 18px;
+  height: 18px;
+}
+
+.social:hover {
+  transform: translateY(-4px);
+  background: rgba(49,93,255,0.2);
+  opacity: 0.95;
+}
+
+/* foot row */
+.footRow {
+  max-width: 1240px;
+  width: 92%;
+  margin: 18px auto 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.copy {
+  color: #bdbdbd;
+  font-size: 13px;
+}
+
+.footLinks {
+  display: flex;
+  gap: 14px;
+}
+
+.footLinks a {
+  color: #cfcfcf;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.footLinks a:hover {
+  color: #fff;
+}
+
+/* responsive */
+@media (max-width: 880px) {
+  .linksGrid {
+    gap: 18px;
+  }
+
+  .social {
+    width: 36px;
+    height: 36px;
+  }
+
+  .container {
+    width: 95%;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .linksGrid {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .linkCol {
+    min-width: 140px;
+  }
+
+  .footRow {
+    width: 95%;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    text-align: center;
+  }
+}

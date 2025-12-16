@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ================= USERS =================
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   @default("USER")   // USER | DEALER | ADMIN
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  profile   Profile?
+  listings  Listing[]
+}
+
+// ================= PROFILE =================
+model Profile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  fullName         String?
+  phone            String?
+  dob              String?
+  address          String?
+  city             String?
+  companyName      String?
+  reraNumber       String?
+  experience       String?
+  profileCompleted Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ================= LISTINGS =================
+model Listing {
+  id           String   @id @default(cuid())
+  ownerId      String
+  ownerRole    String   // USER | DEALER
+  title        String
+  propertyType String
+  purpose      String
+  price        Float
+  location     String
+  description  String?
+  images       String    // comma separated image URLs
+  status       String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  isDeleted    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id])
+}

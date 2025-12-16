@@ -1,0 +1,31 @@
+/* =========================
+   HERO SLIDER SIZE INCREASE
+   ========================= */
+
+.hero,
+.hero-slider,
+.heroSection,
+.slider {
+  height: 75vh;        /* desktop par bada */
+  min-height: 520px;   /* strong hero feel */
+}
+
+/* image / background proper fit */
+.hero img,
+.hero-slider img,
+.slider img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* MOBILE ADJUSTMENT */
+@media (max-width: 768px) {
+  .hero,
+  .hero-slider,
+  .heroSection,
+  .slider {
+    height: 55vh;
+    min-height: 360px;
+  }
+}

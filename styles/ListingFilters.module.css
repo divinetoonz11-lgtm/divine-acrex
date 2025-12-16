@@ -1,0 +1,126 @@
+/* ListingFilters.module.css - updated for dropdown-only Budget/Area + more filters */
+
+.filterBox {
+  width: 100%;
+  background: #ffffff;
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  box-sizing: border-box;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  position: sticky;
+  top: 20px;
+}
+
+.filterBoxInner { padding-right: 6px; }
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #0f172a;
+}
+
+/* small top row for tx + verified */
+.subSmallRow {
+  display:flex;
+  gap:8px;
+  align-items:center;
+  margin-bottom:10px;
+}
+.txSelect {
+  height:36px;
+  padding:6px 10px;
+  border-radius:10px;
+  border:1px solid #e6e6e6;
+  background:#fff;
+}
+.checkboxInline { display:flex; align-items:center; gap:8px; font-size:14px; }
+
+/* main labels */
+.subLabel {
+  margin-top: 14px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #111827;
+}
+
+/* inputs */
+.input, .select {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  padding: 10px 12px;
+  background: #fff;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+.selectSmall {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+  padding: 8px 12px;
+  box-sizing: border-box;
+}
+
+/* row grid for 2 selects */
+.rowGrid {
+  display:flex;
+  gap:10px;
+  margin-bottom:8px;
+}
+.rowGrid > * { flex:1; }
+
+/* checkbox list */
+.checkbox {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin:6px 0;
+  font-size:14px;
+}
+
+/* amenities grid */
+.amenitiesList {
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:6px 10px;
+  margin-bottom:8px;
+}
+
+/* actions */
+.actions {
+  display:flex;
+  gap:10px;
+  margin-top:14px;
+}
+.reset {
+  flex:1;
+  padding:8px 12px;
+  background:#fff;
+  border:1px solid #d1d5db;
+  border-radius:8px;
+  cursor:pointer;
+}
+.apply {
+  flex:1;
+  padding:8px 12px;
+  background:#2563eb;
+  border:none;
+  color:#fff;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:700;
+}
+
+/* responsive */
+@media (max-width:900px) {
+  .filterBox { position:static; max-height:none; padding:14px; }
+  .rowGrid { flex-direction:column; }
+  .amenitiesList { grid-template-columns:1fr; }
+  .subSmallRow { flex-direction:column; align-items:stretch; gap:8px; }
+}

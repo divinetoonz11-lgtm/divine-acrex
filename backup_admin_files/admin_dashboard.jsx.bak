@@ -1,0 +1,355 @@
+/* pages/admin_dashboard.jsx */
+import React, { useEffect, useState } from "react";
+
+export default function AdminDashboard() {
+  const [allowed, setAllowed] = useState(false);
+  const [tab, setTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+
+  const [overview, setOverview] = useState({});
+  const [users, setUsers] = useState([]);
+  const [dealers, setDealers] = useState([]);
+  const [properties, setProperties] = useState([]);
+  const [filters, setFilters] = useState([]);
+
+  const [userSearch, setUserSearch] = useState("");
+  const [dealerSearch, setDealerSearch] = useState("");
+  const [propSearch, setPropSearch] = useState("");
+
+  // Admin protection
+  useEffect(() => {
+    const ok = localStorage.getItem("adminAuth");
+    if (ok === "true") {
+      setAllowed(true);
+      loadAllData();
+    } else {
+      window.location.href = "/admin_login";
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadAllData() {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/admin/overview");
+      const data = await res.json();
+
+      setOverview(data.overview || {});
+      setUsers(data.users || []);
+      setDealers(data.dealers || []);
+      setProperties(data.properties || []);
+      setFilters(data.filters || []);
+    } catch (e) {
+      console.error("Admin fetch failed", e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /* ======= USERS ACTIONS ======= */
+  async function toggleUserActive(id, current) {
+    try {
+      const res = await fetch("/api/admin/users/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: id, active: !current }),
+      });
+      const j = await res.json();
+      if (j.success) {
+        // update locally — prefer server-returned user if available
+        setUsers((s) => s.map((u) => (u._id === id ? (j.user || { ...u, active: !current }) : u)));
+      } else alert(j.message || "Failed to update user");
+    } catch (e) {
+      console.error(e);
+      alert("Error updating user");
+    }
+  }
+
+  async function deleteUser(id) {
+    if (!confirm("Delete user permanently?")) return;
+    try {
+      const res = await fetch("/api/admin/users/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: id }),
+      });
+      const j = await res.json();
+      if (j.success) setUsers((s) => s.filter((u) => u._id !== id));
+      else alert(j.message || "Failed to delete");
+    } catch (e) {
+      console.error(e);
+      alert("Error");
+    }
+  }
+
+  /* ======= DEALERS ACTIONS ======= */
+  async function setDealerStatus(id, status) {
+    try {
+      const res = await fetch("/api/admin/dealers/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealerId: id, status }),
+      });
+      const j = await res.json();
+      if (j.success) setDealers((s) => s.map((d) => (d._id === id ? (j.dealer || { ...d, verifyStatus: status }) : d)));
+      else alert(j.message || "Failed to update dealer");
+    } catch (e) {
+      console.error(e);
+      alert("Error");
+    }
+  }
+
+  async function deleteDealer(id) {
+    if (!confirm("Delete dealer?")) return;
+    try {
+      const res = await fetch("/api/admin/dealers/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealerId: id }),
+      });
+      const j = await res.json();
+      if (j.success) setDealers((s) => s.filter((d) => d._id !== id));
+      else alert(j.message || "Failed");
+    } catch (e) {
+      console.error(e);
+      alert("Error");
+    }
+  }
+
+  /* ======= PROPERTIES ACTIONS ======= */
+  async function propertyAction(id, action) {
+    try {
+      const res = await fetch("/api/admin/properties/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId: id, action }),
+      });
+      const j = await res.json();
+      if (j.success) {
+        // refresh list for accurate state
+        await loadAllData();
+        alert(j.message || "Action completed");
+      } else alert(j.message || "Failed");
+    } catch (e) {
+      console.error(e);
+      alert("Error");
+    }
+  }
+
+  /* ======= FILTERS (simple view) ======= */
+  async function refreshData() {
+    await loadAllData();
+    alert("Refreshed");
+  }
+
+  if (!allowed) return <div style={{ padding: 40 }}>Checking admin access…</div>;
+  if (loading) return <div style={{ padding: 40 }}>Loading admin data…</div>;
+
+  // small helpers: filtered lists
+  const usersFiltered = users.filter((u) =>
+    (u.name || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+    (u.email || "").toLowerCase().includes(userSearch.toLowerCase()) ||
+    (u.phone || "").toLowerCase().includes(userSearch.toLowerCase())
+  );
+
+  const dealersFiltered = dealers.filter((d) =>
+    (d.name || "").toLowerCase().includes(dealerSearch.toLowerCase()) ||
+    (d.email || "").toLowerCase().includes(dealerSearch.toLowerCase()) ||
+    (d.city || "").toLowerCase().includes(dealerSearch.toLowerCase())
+  );
+
+  const propsFiltered = properties.filter((p) =>
+    (p.title || "").toLowerCase().includes(propSearch.toLowerCase()) ||
+    (p.city || "").toLowerCase().includes(propSearch.toLowerCase())
+  );
+
+  return (
+    <div style={ST.page}>
+      <div style={ST.topbar}>
+        <div style={{ fontSize: 22, fontWeight: 800 }}>Admin Dashboard</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={refreshData} style={ST.smallBtn}>Refresh</button>
+          <button
+            onClick={() => {
+              localStorage.removeItem("adminAuth");
+              window.location.href = "/admin_login";
+            }}
+            style={ST.logout}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <div style={ST.grid}>
+        <aside style={ST.sidebar}>
+          {["overview", "users", "dealers", "properties", "filters", "pending", "settings"].map((t) => (
+            <div key={t} style={tab === t ? ST.active : ST.item} onClick={() => setTab(t)}>{t.toUpperCase()}</div>
+          ))}
+        </aside>
+
+        <main style={ST.main}>
+
+          {tab === "overview" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Overview</h2>
+              <div style={ST.statsRow}>
+                <div style={ST.statBox}><div style={ST.num}>{overview.users}</div><div style={ST.label}>Users</div></div>
+                <div style={ST.statBox}><div style={ST.num}>{overview.dealers}</div><div style={ST.label}>Dealers</div></div>
+                <div style={ST.statBox}><div style={ST.num}>{overview.properties}</div><div style={ST.label}>Properties</div></div>
+                <div style={ST.statBox}><div style={ST.num}>{overview.pending}</div><div style={ST.label}>Pending</div></div>
+              </div>
+            </div>
+          )}
+
+          {tab === "users" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>All Users</h2>
+              <div style={{ marginBottom: 10, display: "flex", gap: 8 }}>
+                <input placeholder="Search users..." value={userSearch} onChange={(e)=>setUserSearch(e.target.value)} style={ST.search} />
+                <button onClick={()=>setUserSearch("")} style={ST.smallBtn}>Clear</button>
+              </div>
+
+              {usersFiltered.length === 0 && <div>No users</div>}
+
+              {usersFiltered.map((u) => (
+                <div key={u._id} style={ST.listItem}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <strong>{u.name || "-"}</strong>
+                      <div style={{fontSize:13}}>{u.email}</div>
+                      <div style={{fontSize:13}}>📞 {u.phone || "-"}</div>
+                      <div style={{fontSize:13}}>Role: {u.role || "user"}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <button onClick={()=>toggleUserActive(u._id, u.active)} style={ST.actionBtn}>{u.active ? "Block" : "Activate"}</button>
+                      <button onClick={()=>deleteUser(u._id)} style={ST.deleteBtn}>Delete</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === "dealers" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>All Dealers</h2>
+              <div style={{ marginBottom: 10, display: "flex", gap: 8 }}>
+                <input placeholder="Search dealers..." value={dealerSearch} onChange={(e)=>setDealerSearch(e.target.value)} style={ST.search} />
+                <button onClick={()=>setDealerSearch("")} style={ST.smallBtn}>Clear</button>
+              </div>
+
+              {dealersFiltered.length === 0 && <div>No dealers</div>}
+
+              {dealersFiltered.map((d) => (
+                <div key={d._id} style={ST.listItem}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <strong>{d.name || "-"}</strong>
+                      <div style={{fontSize:13}}>{d.email}</div>
+                      <div style={{fontSize:13}}>{d.city}</div>
+                      <div style={{fontSize:13}}>Status: {d.verifyStatus || "-"}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>setDealerStatus(d._id, "approved")} style={ST.actionBtn}>Approve</button>
+                        <button onClick={()=>setDealerStatus(d._id, "rejected")} style={ST.warnBtn}>Reject</button>
+                      </div>
+                      <button onClick={()=>deleteDealer(d._id)} style={ST.deleteBtn}>Delete</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === "properties" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>All Properties</h2>
+              <div style={{ marginBottom: 10, display: "flex", gap: 8 }}>
+                <input placeholder="Search properties..." value={propSearch} onChange={(e)=>setPropSearch(e.target.value)} style={ST.search} />
+                <button onClick={()=>setPropSearch("")} style={ST.smallBtn}>Clear</button>
+              </div>
+
+              {propsFiltered.length === 0 && <div>No properties</div>}
+
+              {propsFiltered.map((p) => (
+                <div key={p._id} style={ST.listItem}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <strong>{p.title || "-"}</strong>
+                      <div style={{fontSize:13}}>{p.city}   {p.bhk || "-"} BHK   {p.area || "-"} sqft</div>
+                      <div style={{fontSize:13}}>₹ {p.price || "-" } {p.priceType || ""}</div>
+                      <div style={{fontSize:13}}>Status: {p.status || (p.approved ? "approved" : "pending")}</div>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={()=>propertyAction(p._id, "approve")} style={ST.actionBtn}>Approve</button>
+                        <button onClick={()=>propertyAction(p._id, "reject")} style={ST.warnBtn}>Reject</button>
+                      </div>
+                      <button onClick={()=>propertyAction(p._id, "deactivate")} style={ST.deleteBtn}>Deactivate</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tab === "filters" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Filters Configuration</h2>
+              <div>Filters count: {filters.length}</div>
+              <div style={{marginTop:10}}>
+                {filters.map(f => (
+                  <div key={f._id} style={ST.listItem}>
+                    <strong>{f.group}</strong>
+                    <div>Options: {f.options?.length || 0}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === "pending" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Pending Approvals</h2>
+              <div>{overview.pending} pending items</div>
+            </div>
+          )}
+
+          {tab === "settings" && (
+            <div style={ST.card}>
+              <h2 style={ST.h2}>Admin Settings</h2>
+              <div>Change Password</div>
+              <div>Site Config</div>
+            </div>
+          )}
+
+        </main>
+      </div>
+    </div>
+  );
+}
+
+/* STYLES */
+const ST = {
+  page: { minHeight: "100vh", background: "#f4f6fa", padding: 20, fontFamily: "Inter, sans-serif" },
+  topbar: { maxWidth: 1200, margin: "0 auto", padding: "14px 18px", background: "#0b6cff", color: "#fff", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" },
+  logout: { padding: "8px 14px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600 },
+  grid: { maxWidth: 1200, margin: "20px auto", display: "grid", gridTemplateColumns: "220px 1fr", gap: 20 },
+  sidebar: { background: "#fff", padding: 16, borderRadius: 10, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 10 },
+  item: { padding: "10px 12px", borderRadius: 8, background: "#f8fafc", cursor: "pointer", fontWeight: 600 },
+  active: { padding: "10px 12px", borderRadius: 8, background: "#0b6cff", color: "#fff", cursor: "pointer", fontWeight: 700 },
+  card: { background: "#fff", padding: 20, borderRadius: 10, boxShadow: "0 4px 14px rgba(0,0,0,0.05)", border: "1px solid #e5e7eb" },
+  h2: { margin: 0, marginBottom: 14, fontSize: 20, fontWeight: 800 },
+  statsRow: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 },
+  statBox: { background: "#eef4ff", padding: 16, borderRadius: 10, textAlign: "center" },
+  num: { fontSize: 26, fontWeight: 900, color: "#0b6cff" },
+  label: { marginTop: 6, fontSize: 14, color: "#475569" },
+  listItem: { padding: 12, borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0", marginBottom: 10 },
+  search: { padding: "8px 10px", borderRadius: 8, border: "1px solid #e2e8f0", flex: 1 },
+  smallBtn: { padding: "8px 10px", borderRadius: 8, border: "1px solid #d1d5db", background: "#fff", cursor: "pointer" },
+  actionBtn: { padding: "8px 10px", borderRadius: 8, border: "none", background: "#0b6cff", color: "#fff", cursor: "pointer" },
+  warnBtn: { padding: "8px 10px", borderRadius: 8, border: "none", background: "#f97316", color: "#fff", cursor: "pointer" },
+  deleteBtn: { padding: "8px 10px", borderRadius: 8, border: "none", background: "#ef4444", color: "#fff", cursor: "pointer" }
+};

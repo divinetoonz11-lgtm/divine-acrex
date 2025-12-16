@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST='{"..\\\\components\\\\Header.jsx -> ./MobileHeader":{"id":1965,"files":["static/chunks/1965.c2c8bb3d5850ac7f.js"]}}';
