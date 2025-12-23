@@ -4,21 +4,41 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import clientPromise from "../../../lib/mongodb";
 
 export const authOptions = {
+  // 🔐 Core security
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // ✅ Railway fix (already required)
+  trustHost: true,
+  basePath: "/api/auth",
 
-  basePath: "/api/auth", // ✅ CRITICAL FIX for Railway + custom domain
+  // 🔒 FORCE cookies to custom domain (CRITICAL FIX)
+  cookies: {
+    sessionToken: {
+      name: "__Secure-next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+        domain: ".divineacres.in",
+      },
+    },
+  },
 
-  session: { strategy: "jwt" },
+  // 🔑 Session strategy
+  session: {
+    strategy: "jwt",
+  },
 
+  // ======================
+  // AUTH PROVIDERS
+  // ======================
   providers: [
-    // 🔵 GOOGLE LOGIN (USER + DEALER)
+    // 🔵 GOOGLE LOGIN
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
-          prompt: "select_account", // ✅ avoids stale session / redirect confusion
+          prompt: "select_account",
         },
       },
     }),
@@ -34,17 +54,20 @@ export const authOptions = {
     }),
   ],
 
+  // ======================
+  // CALLBACKS
+  // ======================
   callbacks: {
-    // ===== SESSION CALLBACK =====
+    // 🔁 SESSION CALLBACK
     async session({ session, token }) {
       session.user.email = token.email;
       session.user.role = token.role || "user";
       return session;
     },
 
-    // ===== JWT CALLBACK =====
+    // 🔁 JWT CALLBACK
     async jwt({ token, account, profile }) {
-      // 🔒 SAFE GUARD — SAME LOGIC, CRASH-FREE
+      // 🛡️ SAFE LOGIN (NO CRASH)
       if (account && (token.email || profile?.email)) {
         const client = await clientPromise;
         const db = client.db();
@@ -72,8 +95,11 @@ export const authOptions = {
     },
   },
 
+  // ======================
+  // PAGES
+  // ======================
   pages: {
-    signIn: "/", // landing page
+    signIn: "/",
   },
 };
 
