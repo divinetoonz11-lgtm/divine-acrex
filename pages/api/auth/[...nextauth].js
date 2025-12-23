@@ -5,16 +5,25 @@ import clientPromise from "../../../lib/mongodb";
 
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // Railway fix (already working)
+  trustHost: true, // ✅ Railway fix (already required)
+
+  basePath: "/api/auth", // ✅ CRITICAL FIX for Railway + custom domain
 
   session: { strategy: "jwt" },
 
   providers: [
+    // 🔵 GOOGLE LOGIN (USER + DEALER)
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {
+          prompt: "select_account", // ✅ avoids stale session / redirect confusion
+        },
+      },
     }),
 
+    // 🔐 PHONE / OTP (disabled safely)
     CredentialsProvider({
       id: "credentials",
       name: "Phone",
@@ -26,14 +35,16 @@ export const authOptions = {
   ],
 
   callbacks: {
+    // ===== SESSION CALLBACK =====
     async session({ session, token }) {
       session.user.email = token.email;
       session.user.role = token.role || "user";
       return session;
     },
 
+    // ===== JWT CALLBACK =====
     async jwt({ token, account, profile }) {
-      // 🔒 SAFE GUARD – logic same, crash fix
+      // 🔒 SAFE GUARD — SAME LOGIC, CRASH-FREE
       if (account && (token.email || profile?.email)) {
         const client = await clientPromise;
         const db = client.db();
@@ -62,7 +73,7 @@ export const authOptions = {
   },
 
   pages: {
-    signIn: "/",
+    signIn: "/", // landing page
   },
 };
 
