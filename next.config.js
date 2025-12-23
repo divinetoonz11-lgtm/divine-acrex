@@ -1,15 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
-  poweredByHeader: false, // remove x-powered-by header
+  // ❌ Strict mode off — desktop dashboard loading loop fix
+  reactStrictMode: false,
+
+  // ❌ Remove X-Powered-By header (security)
+  poweredByHeader: false,
 
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // 🔒 Vercel build time par Mongo / Mongoose ko touch na kare
+      // ✅ Mongo related externals allowed
+      // ❌ fs / prisma / auth logic ko touch nahi karta
       config.externals.push({
         mongoose: "commonjs mongoose",
         mongodb: "commonjs mongodb",
-        fs: "commonjs fs",
       });
     }
     return config;

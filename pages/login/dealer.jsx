@@ -8,25 +8,23 @@ export default function DealerLogin() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
 
-  // ---------------- EMAIL LOGIN DEMO ----------------
+  // ---------------- EMAIL LOGIN (DEMO / OPTIONAL) ----------------
   function loginEmail(e) {
     e.preventDefault();
 
     if (email === "dealer@demo.com" && pw === "dealer123") {
-      localStorage.setItem("logged_in", "true");
-      localStorage.setItem("role", "dealer");
-      localStorage.setItem("dealer_email", email);
-      router.push("/dashboard/dealer");
+      router.push("/dealer/dashboard");
     } else {
       alert("Wrong Email or Password");
     }
   }
 
-  // ---------------- GOOGLE LOGIN ----------------
+  // ---------------- GOOGLE LOGIN (FINAL FIX) ----------------
   async function loginGoogle() {
-    localStorage.setItem("role", "dealer");
-    await signIn("google", {
-      callbackUrl: "/dashboard/dealer",
+    // ❌ localStorage role set करने की जरूरत नहीं
+    // ✅ NextAuth provider decide करेगा role
+    await signIn("google-dealer", {
+      callbackUrl: "/auth/redirect",
     });
   }
 
@@ -69,6 +67,7 @@ export default function DealerLogin() {
           <img
             src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg"
             style={ST.googleIcon}
+            alt="Google"
           />
           Continue with Google
         </button>

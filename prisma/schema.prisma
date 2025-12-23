@@ -7,11 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+//
 // ================= USERS =================
+//
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  role      String   @default("USER")   // USER | DEALER | ADMIN
+  role      String   @default("USER") // USER | DEALER | ADMIN
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -19,7 +21,9 @@ model User {
   listings  Listing[]
 }
 
+//
 // ================= PROFILE =================
+//
 model Profile {
   id               String   @id @default(cuid())
   userId           String   @unique
@@ -34,10 +38,12 @@ model Profile {
   profileCompleted Boolean  @default(false)
   updatedAt        DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+//
 // ================= LISTINGS =================
+//
 model Listing {
   id           String   @id @default(cuid())
   ownerId      String
@@ -53,5 +59,5 @@ model Listing {
   isDeleted    Boolean   @default(false)
   createdAt    DateTime  @default(now())
 
-  owner User @relation(fields: [ownerId], references: [id])
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 }

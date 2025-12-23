@@ -1,244 +1,224 @@
 ﻿import React, { useEffect, useState } from "react";
-import { useSession, signOut } from "next-auth/react";
-import { useRouter } from "next/router";
+import { signOut, useSession } from "next-auth/react";
+
+/* ===== EXISTING PAGES ===== */
+import DealerInsights from "./insights";
+import DealerLeads from "./leads";
 import DealerReferral from "./referral";
+import DealerProfile from "./profile";
+import DealerSubscription from "./subscription";
+import DealerNotifications from "./notifications";
+import DealerMyProperties from "./my-properties";
+import BillingInvoices from "./billing-invoices";
 
 export default function DealerDashboard() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-
+  const { data: session } = useSession();
   const [tab, setTab] = useState("overview");
-  const [loading, setLoading] = useState(true);
+  const [propertyTab, setPropertyTab] = useState("post");
 
-  /* ================= ROLE GUARD ================= */
-  useEffect(() => {
-    if (status === "loading") return;
-    if (!session) return router.replace("/");
-    if (session.user.role !== "dealer") {
-      router.replace("/user/dashboard");
-    }
-  }, [session, status]);
+  /* ===== REFERRAL ===== */
+  const [referralCode, setReferralCode] = useState("");
 
-  /* ================= DATA ================= */
-  const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    phone: "",
-  });
-
-  const [subscription, setSubscription] = useState({
-    plan: "FREE",
-    status: "ACTIVE",
-  });
-
-  /* ================= DUMMY PROPERTIES ================= */
-  const dummyListings = [
-    {
-      id: "p1",
-      title: "3 BHK Apartment",
-      location: "Andheri West, Mumbai",
-      price: "₹1.45 Cr",
-      type: "Residential",
-      postedOn: "12 Dec 2025",
-      views: 124,
-      status: "APPROVED",
-      image: "/images/listing-example-1.png",
-    },
-    {
-      id: "p2",
-      title: "Commercial Office Space",
-      location: "Noida Sector 62",
-      price: "₹85 Lacs",
-      type: "Commercial",
-      postedOn: "10 Dec 2025",
-      views: 89,
-      status: "PENDING",
-      image: "/images/listing-example-2.png",
-    },
-    {
-      id: "p3",
-      title: "Luxury Villa",
-      location: "Lonavala",
-      price: "₹3.2 Cr",
-      type: "Villa",
-      postedOn: "08 Dec 2025",
-      views: 46,
-      status: "REJECTED",
-      image: "/images/listing-example-3.png",
-    },
-  ];
+  /* ===== PROFILE STATUS ===== */
+  const profileCompleted = !!session?.user?.name && !!session?.user?.email;
 
   useEffect(() => {
-    if (!session) return;
-    (async () => {
-      try {
-        const pr = await fetch("/api/dealer/profile");
-        const pj = await pr.json();
-        if (pj?.ok && pj.profile) setProfile(pj.profile);
-
-        const sr = await fetch("/api/dealer/subscription");
-        const sj = await sr.json();
-        if (sj?.ok && sj.subscription) setSubscription(sj.subscription);
-      } catch {}
-      setLoading(false);
-    })();
-  }, [session]);
-
-  if (loading) return <div style={{ padding: 40 }}>Loading dashboard…</div>;
+    fetch("/api/dealer/referral")
+      .then(r => r.json())
+      .then(j => {
+        if (j?.ok && j?.summary?.referralCode) {
+          setReferralCode(j.summary.referralCode);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f4f7fb" }}>
+    <div style={wrap}>
       {/* ================= SIDEBAR ================= */}
-      <aside style={sb}>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <img src="/images/avatar.png" style={avatar} />
-          <div style={{ fontWeight: 800 }}>{profile.name || "Dealer"}</div>
-          <div style={{ fontSize: 12, color: "#c7d2fe" }}>
-            Plan: {subscription.plan}
-          </div>
+      <aside style={sidebar}>
+        <div style={profileBlock}>
+          <img
+            src={session?.user?.image || "/images/avatar.png"}
+            alt="Profile"
+            style={avatar}
+            onClick={() => setTab("profile")}
+          />
+          <div style={profileName}>{session?.user?.name || "Dealer"}</div>
+          <div style={profileEmail}>{session?.user?.email || ""}</div>
         </div>
 
-        <Nav t="overview" tab={tab} setTab={setTab}>Overview</Nav>
-        <Nav t="post" tab={tab} setTab={setTab}>Post Property</Nav>
-        <Nav t="properties" tab={tab} setTab={setTab}>My Properties</Nav>
-        <Nav t="leads" tab={tab} setTab={setTab}>Leads</Nav>
-        <Nav t="subscription" tab={tab} setTab={setTab}>Subscription</Nav>
-        <Nav t="referral" tab={tab} setTab={setTab}>Referral / Earn</Nav>
-        <Nav t="profile" tab={tab} setTab={setTab}>Profile</Nav>
-        <Nav t="support" tab={tab} setTab={setTab}>Support</Nav>
+        <Nav label="Dashboard" active={tab==="overview"} onClick={()=>setTab("overview")} />
+        <Nav label="Insights" active={tab==="insights"} onClick={()=>setTab("insights")} />
+        <Nav label="Properties" active={tab==="properties"} onClick={()=>setTab("properties")} />
+        <Nav label="Leads" active={tab==="leads"} onClick={()=>setTab("leads")} />
+        <Nav label="Referral & Rewards" active={tab==="referral"} onClick={()=>setTab("referral")} />
+        <Nav label="Subscription" active={tab==="subscription"} onClick={()=>setTab("subscription")} />
+        <Nav label="Billing & Invoices" active={tab==="payments"} onClick={()=>setTab("payments")} />
+        <Nav label="Notifications" active={tab==="notifications"} onClick={()=>setTab("notifications")} />
+        <Nav label="Profile" active={tab==="profile"} onClick={()=>setTab("profile")} />
 
-        <button style={logoutBtn} onClick={() => signOut({ callbackUrl: "/" })}>
+        <button style={logout} onClick={() => signOut({ callbackUrl: "/" })}>
           Logout
         </button>
       </aside>
 
       {/* ================= MAIN ================= */}
-      <main style={{ flex: 1, padding: 28 }}>
-
+      <main style={main}>
         {tab === "overview" && (
-          <div style={grid}>
-            <Stat title="Total Properties" val={dummyListings.length} />
-            <Stat title="Approved" val={dummyListings.filter(p => p.status === "APPROVED").length} />
-            <Stat title="Pending" val={dummyListings.filter(p => p.status === "PENDING").length} />
-            <Stat title="Plan" val={subscription.plan} />
-          </div>
+          <>
+            {/* ===== REFERRAL ===== */}
+            <div style={referralCard}>
+              <div style={refLabel}>Your Referral Code</div>
+              <div style={refCode}>{referralCode || "—"}</div>
+
+              {referralCode && (
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `Join Divine Acres using my referral code ${referralCode}`
+                  )}`}
+                  target="_blank"
+                >
+                  <button style={whatsappBtn}>Share on WhatsApp</button>
+                </a>
+              )}
+            </div>
+
+            {/* ===== 8 CLICKABLE OVERVIEW BOXES ===== */}
+            <div style={grid}>
+              <DashCard title="Total Properties" desc="Listed by you"
+                action={{ label:"View", onClick:()=>setTab("properties") }} />
+
+              <DashCard title="Active Leads" desc="Buyer enquiries"
+                action={{ label:"Open", onClick:()=>setTab("leads") }} />
+
+              <DashCard title="Profile Status"
+                value={profileCompleted ? "Completed" : "Pending"}
+                desc="Dealer profile"
+                status={profileCompleted}
+                action={{ label:"Edit", onClick:()=>setTab("profile") }} />
+
+              <DashCard title="Post Property" value="+"
+                desc="Add new listing"
+                action={{ label:"Post", onClick:()=>setTab("properties") }} />
+
+              <DashCard title="My Properties" desc="Manage listings"
+                action={{ label:"Open", onClick:()=>setTab("properties") }} />
+
+              <DashCard title="Subscription" desc="Your plan"
+                action={{ label:"View", onClick:()=>setTab("subscription") }} />
+
+              <DashCard title="Referral & Rewards" desc="Invite & earn"
+                action={{ label:"Open", onClick:()=>setTab("referral") }} />
+
+              <DashCard title="Notifications" desc="Latest updates"
+                action={{ label:"View", onClick:()=>setTab("notifications") }} />
+            </div>
+          </>
         )}
 
-        {tab === "post" && (
-          <div style={box}>
-            <button style={btn} onClick={() => router.push("/post-property")}>
-              Open Post Property Form
-            </button>
-          </div>
-        )}
-
+        {tab === "insights" && <DealerInsights />}
         {tab === "properties" && (
-          <div style={cardGrid}>
-            {dummyListings.map(p => (
-              <div key={p.id} style={propertyCard}>
-                <img src={p.image} style={propertyImg} />
-                <div style={{ padding: 14 }}>
-                  <div style={{ fontWeight: 800 }}>{p.title}</div>
-                  <div style={muted}>{p.location}</div>
-                  <div style={{ marginTop: 6, fontWeight: 800 }}>{p.price}</div>
+          <>
+            <div style={subTabs}>
+              <SubTab label="Post Property" active={propertyTab==="post"} onClick={()=>setPropertyTab("post")} />
+              <SubTab label="My Properties" active={propertyTab==="my"} onClick={()=>setPropertyTab("my")} />
+            </div>
 
-                  <div style={row}>
-                    <span style={chip}>{p.type}</span>
-                    <span style={chip}>Views: {p.views}</span>
-                  </div>
-
-                  <div style={row}>
-                    <span style={muted}>Posted: {p.postedOn}</span>
-                    <span style={statusBadge(p.status)}>{p.status}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+            {propertyTab === "post" && (
+              <a href="/post-property">
+                <button style={goBtn}>Open Post Property Form</button>
+              </a>
+            )}
+            {propertyTab === "my" && <DealerMyProperties />}
+          </>
         )}
 
-        {tab === "leads" && <div style={box}>No leads yet</div>}
-
-        {tab === "subscription" && (
-          <div style={box}>
-            <h3>Current Plan</h3>
-            <p style={muted}>{subscription.plan}</p>
-            <button style={btn} onClick={() => router.push("/dealer/subscription")}>
-              Upgrade / Change Plan
-            </button>
-          </div>
-        )}
-
+        {tab === "leads" && <DealerLeads />}
         {tab === "referral" && <DealerReferral />}
-
-        {tab === "profile" && (
-          <div style={box}>
-            <p><b>Name:</b> {profile.name}</p>
-            <p><b>Email:</b> {profile.email}</p>
-            <p><b>Phone:</b> {profile.phone}</p>
-          </div>
-        )}
-
-        {/* ================= SUPPORT (FIXED) ================= */}
-        {tab === "support" && (
-          <div style={box}>
-            <h3>Need Help?</h3>
-            <p style={muted}>Our support team is available 7 days a week.</p>
-
-            <a
-              href="mailto:divinetoonz11@gmail.com"
-              style={{ ...btn, display: "inline-block", marginTop: 10 }}
-            >
-              Email Support
-            </a>
-          </div>
-        )}
-
+        {tab === "subscription" && <DealerSubscription />}
+        {tab === "payments" && <BillingInvoices />}
+        {tab === "notifications" && <DealerNotifications />}
+        {tab === "profile" && <DealerProfile />}
       </main>
     </div>
   );
 }
 
 /* ================= COMPONENTS ================= */
-const Nav = ({ t, tab, setTab, children }) => (
-  <div style={nav(tab === t)} onClick={() => setTab(t)}>{children}</div>
+
+const Nav = ({ label, active, onClick }) => (
+  <div onClick={onClick} style={{
+    padding:"10px 14px", marginBottom:6, borderRadius:10, cursor:"pointer",
+    background: active ? "#1e40af" : "transparent",
+    color: active ? "#fff" : "#c7d2fe", fontWeight:700
+  }}>{label}</div>
 );
 
-const Stat = ({ title, val }) => (
-  <div style={stat}>
-    <div style={muted}>{title}</div>
-    <div style={{ fontSize: 22, fontWeight: 900 }}>{val}</div>
+const SubTab = ({ label, active, onClick }) => (
+  <button onClick={onClick} style={{
+    padding:"8px 16px", borderRadius:20, border:"none",
+    fontWeight:700, cursor:"pointer",
+    background: active ? "#1e40af" : "#e5edff",
+    color: active ? "#fff" : "#1e3a8a"
+  }}>{label}</button>
+);
+
+const DashCard = ({ title, value="—", desc, status, action }) => (
+  <div style={{
+    background:"#fff",
+    padding:16,
+    minHeight:110,
+    borderRadius:14,
+    boxShadow:"0 6px 18px rgba(0,0,0,0.08)",
+    display:"flex",
+    flexDirection:"column",
+    justifyContent:"space-between"
+  }}>
+    <div>
+      <div style={{ fontSize:12, color:"#475569", fontWeight:700 }}>{title}</div>
+      <div style={{
+        marginTop:6,
+        fontSize:22,
+        fontWeight:900,
+        color: status === false ? "#dc2626" : "#1e3a8a"
+      }}>{value}</div>
+      <div style={{ marginTop:4, fontSize:12, color:"#64748b" }}>{desc}</div>
+    </div>
+
+    {action && (
+      <button onClick={action.onClick} style={{
+        marginTop:8,
+        padding:"6px 10px",
+        fontSize:12,
+        borderRadius:8,
+        border:"none",
+        background:"#e0e7ff",
+        color:"#1e40af",
+        fontWeight:700,
+        cursor:"pointer"
+      }}>{action.label}</button>
+    )}
   </div>
 );
 
 /* ================= STYLES ================= */
-const sb = { width: 260, background: "#0a1f44", color: "#fff", padding: 18 };
-const avatar = { width: 64, height: 64, borderRadius: "50%" };
-const logoutBtn = { marginTop: 20, padding: 10, background: "#ef4444", color: "#fff", border: 0, borderRadius: 8 };
 
-const nav = a => ({ padding: 12, marginTop: 6, borderRadius: 10, cursor: "pointer", background: a ? "rgba(255,255,255,.15)" : "" });
+const wrap = { display:"flex", height:"100vh", background:"#f1f5fb" };
+const sidebar = { width:240, background:"#0a2a5e", color:"#fff", padding:16, overflowY:"auto" };
+const main = { flex:1, padding:20, overflowY:"auto" };
 
-const grid = { display: "flex", gap: 14, marginBottom: 20 };
-const stat = { background: "#fff", padding: 18, borderRadius: 14, minWidth: 180 };
+const profileBlock = { display:"flex", flexDirection:"column", alignItems:"center", marginBottom:20 };
+const avatar = { width:56, height:56, borderRadius:"50%", border:"2px solid #2563eb", cursor:"pointer" };
+const profileName = { marginTop:8, fontWeight:800, fontSize:14 };
+const profileEmail = { fontSize:12, opacity:.8, textAlign:"center", wordBreak:"break-all" };
+const logout = { marginTop:20, width:"100%", padding:10, background:"#ef4444", color:"#fff", border:"none", borderRadius:10, fontWeight:700 };
 
-const box = { background: "#fff", padding: 24, borderRadius: 16 };
-const btn = { padding: "10px 18px", background: "#315DFF", color: "#fff", border: 0, borderRadius: 10 };
+const referralCard = { background:"#eef2ff", padding:18, borderRadius:16, marginBottom:20 };
+const refLabel = { fontSize:13, color:"#475569" };
+const refCode = { fontSize:22, fontWeight:900, marginTop:4 };
+const whatsappBtn = { marginTop:10, padding:"8px 14px", background:"#22c55e", color:"#fff", border:"none", borderRadius:10, fontWeight:800 };
 
-const cardGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))", gap: 16 };
-
-const propertyCard = { background: "#fff", borderRadius: 14, overflow: "hidden" };
-const propertyImg = { width: "100%", height: 160, objectFit: "cover" };
-
-const row = { display: "flex", justifyContent: "space-between", marginTop: 8 };
-const chip = { background: "#eef2ff", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 700 };
-
-const statusBadge = s => ({
-  padding: "4px 10px",
-  borderRadius: 6,
-  fontSize: 12,
-  fontWeight: 800,
-  background: s === "APPROVED" ? "#22c55e" : s === "PENDING" ? "#f59e0b" : "#ef4444",
-  color: "#fff",
-});
-
-const muted = { fontSize: 13, color: "#6b7280" };
+const grid = { display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:14 };
+const subTabs = { display:"flex", gap:10, marginBottom:20 };
+const goBtn = { padding:"14px 18px", background:"#1e40af", color:"#fff", border:"none", borderRadius:12, fontWeight:800 };

@@ -1,70 +1,81 @@
-// pages/api/dealer/leads.js
-
+import dbConnect from "../../../utils/dbConnect";
+import mongoose from "mongoose";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import clientPromise from "../../../lib/mongodb";
 
 /*
-LEADS API – v1
-✔ Property enquiry → Lead
-✔ Dealer-wise leads
-✔ MongoDB based
+DEALER LEADS API – FINAL
+✔ Dealer only
+✔ Empty-safe
+✔ UI preview compatible
+✔ Future filters ready (month/year/date)
 */
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
+  if (req.method !== "GET") {
+    return res.status(405).json({ ok: false });
+  }
 
-  if (!session || session.user.role !== "dealer") {
+  const session = await getServerSession(req, res, authOptions);
+  if (!session || session.user?.role !== "dealer") {
     return res.status(401).json({ ok: false });
   }
 
-  const client = await clientPromise;
-  const db = client.db();
-  const leadsCol = db.collection("leads");
+  try {
+    await dbConnect();
+    const db = mongoose.connection.db;
 
-  // ================= GET → Dealer Leads =================
-  if (req.method === "GET") {
-    const leads = await leadsCol
-      .find({ dealerEmail: session.user.email })
-      .sort({ createdAt: -1 })
-      .toArray();
+    /* ================= FILTERS (future-ready) ================= */
+    const { from, to, month, year } = req.query;
 
-    return res.json({
-      ok: true,
-      leads,
-    });
-  }
+    const query = {
+      dealerEmail: session.user.email,
+    };
 
-  // ================= POST → Create Lead (from property enquiry) =================
-  if (req.method === "POST") {
-    const {
-      propertyId,
-      propertyTitle,
-      buyerName,
-      buyerPhone,
-      buyerEmail,
-    } = req.body;
-
-    if (!propertyId || !buyerPhone) {
-      return res.json({ ok: false, message: "Missing data" });
+    if (from && to) {
+      query.createdAt = {
+        $gte: new Date(from),
+        $lte: new Date(to),
+      };
     }
 
-    await leadsCol.insertOne({
-      dealerEmail: session.user.email,
-      propertyId,
-      propertyTitle,
-      buyerName: buyerName || "Unknown",
-      buyerPhone,
-      buyerEmail: buyerEmail || "",
-      status: "NEW", // NEW | CONTACTED | CLOSED
-      createdAt: new Date(),
-    });
+    if (month && year) {
+      const m = parseInt(month) - 1; // 0 based
+      const y = parseInt(year);
+      query.createdAt = {
+        $gte: new Date(y, m, 1),
+        $lte: new Date(y, m + 1, 0, 23, 59, 59),
+      };
+    }
 
-    return res.json({
+    /* ================= FETCH LEADS ================= */
+    const leads = await db
+      .collection("leads")
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray();
+
+    /* ================= NORMALIZE FOR UI ================= */
+    const safeLeads = leads.map((l) => ({
+      _id: l._id,
+      buyerName: l.buyerName || "Unknown Buyer",
+      buyerPhone: l.buyerPhone || "-",
+      buyerEmail: l.buyerEmail || "-",
+      propertyTitle: l.propertyTitle || "Property Enquiry",
+      status: l.status || "NEW",
+      createdAt: l.createdAt || new Date(),
+    }));
+
+    return res.status(200).json({
       ok: true,
-      message: "Lead saved",
+      leads: safeLeads,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      ok: false,
+      leads: [],
     });
   }
-
-  return res.status(405).json({ ok: false });
 }

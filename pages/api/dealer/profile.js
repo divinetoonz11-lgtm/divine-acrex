@@ -1,74 +1,72 @@
-// pages/api/dealer/profile.js
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { PrismaClient } from "@prisma/client";
+import dbConnect from "../../../utils/dbConnect";
+import User from "../../../models/User";
 
-const prisma = new PrismaClient();
+/*
+DEALER PROFILE API
+✔ Auth required
+✔ Mobile mandatory
+✔ Google/Phone auto fields safe
+*/
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
+  try {
+    const session = await getServerSession(req, res, authOptions);
 
-  // ✅ ONLY LOGIN REQUIRED (ROLE CHECK LATER)
-  if (!session || !session.user?.email) {
-    return res.status(401).json({ ok: false, message: "Unauthorized" });
-  }
+    if (!session || session.user?.role !== "dealer") {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
 
-  const email = session.user.email;
+    if (req.method !== "POST") {
+      return res.status(405).json({ ok: false, message: "Method not allowed" });
+    }
 
-  // ---------- GET DEALER PROFILE ----------
-  if (req.method === "GET") {
-    let user = await prisma.user.findUnique({
-      where: { email },
-      include: { profile: true },
-    });
+    const {
+      mobile,
+      businessName,
+      address,
+      pan,
+      gst,
+    } = req.body;
 
-    // AUTO CREATE DEALER ON FIRST ACCESS
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          email,
-          role: "DEALER",
-          profile: {
-            create: {
-              fullName: session.user.name || "",
-            },
-          },
-        },
-        include: { profile: true },
+    if (!mobile || mobile.length < 10) {
+      return res.status(400).json({
+        ok: false,
+        message: "Mobile number is mandatory",
       });
     }
 
-    return res.json({
-      ok: true,
-      profile: {
-        name: user.profile?.fullName || "",
-        email: user.email,
-        phone: user.profile?.phone || "",
-        plan: user.plan || "FREE",
-      },
-    });
-  }
+    await dbConnect();
 
-  // ---------- UPDATE DEALER PROFILE ----------
-  if (req.method === "PUT") {
-    const { name, phone } = req.body;
-
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await User.findOne({ email: session.user.email });
 
     if (!user) {
-      return res.status(404).json({ ok: false, message: "User not found" });
+      return res.status(404).json({ ok: false, message: "Dealer not found" });
     }
 
-    await prisma.profile.update({
-      where: { userId: user.id },
-      data: {
-        fullName: name,
-        phone,
-      },
+    // 🔒 Auto fields from session (do not trust client)
+    user.name = session.user.name || user.name;
+    user.email = session.user.email || user.email;
+
+    // ✍️ Editable fields
+    user.mobile = mobile;
+    user.businessName = businessName || "";
+    user.address = address || "";
+    user.pan = pan || "";
+    user.gst = gst || "";
+
+    await user.save();
+
+    return res.json({
+      ok: true,
+      message: "Profile updated successfully",
     });
-
-    return res.json({ ok: true });
+  } catch (err) {
+    console.error("Profile API Error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Server error",
+    });
   }
-
-  res.status(405).json({ ok: false });
 }

@@ -3,12 +3,32 @@ import { Html, Head, Main, NextScript } from "next/document";
 export default function Document() {
   return (
     <Html lang="en">
-      <Head />
+      <Head>
+        {/* ================= Google Analytics GA4 ================= */}
+        <script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-PJN4N754GC"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-PJN4N754GC', {
+                page_path: window.location.pathname,
+              });
+            `,
+          }}
+        />
+        {/* ======================================================== */}
+      </Head>
+
       <body>
         <Main />
         <NextScript />
 
-        {/* Tawk.to Chatbot */}
+        {/* ================= Tawk.to Chatbot ================= */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -24,6 +44,7 @@ s0.parentNode.insertBefore(s1,s0);
             `,
           }}
         />
+        {/* =================================================== */}
       </body>
     </Html>
   );

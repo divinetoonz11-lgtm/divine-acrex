@@ -5,9 +5,10 @@ import Dealers from "../components/Dealers";
 import ServicesSection from "../components/ServicesSection";
 
 /**
- * RULE:
- * - Header / MobileHeader comes ONLY from _app.jsx
- * - No header logic in this page
+ * ORIGINAL HOME PAGE
+ * - Header / MobileHeader from _app.jsx
+ * - No auth / redirect logic
+ * - Inline hero slider (first version)
  */
 
 export default function Home() {

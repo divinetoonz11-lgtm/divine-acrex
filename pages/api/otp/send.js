@@ -3,41 +3,53 @@ import clientPromise from "../../../lib/mongodb";
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { phone, role } = req.body;
+  const { phone, role } = req.body || {};
+  if (!phone) return res.status(400).json({ ok: false });
 
-  if (!phone || phone.length !== 10)
-    return res.status(400).json({ ok: false });
+  // role decide
+  const finalRole = role === "dealer" ? "dealer" : "user";
+
+  // auto OTP
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  const otpExpiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
   const client = await clientPromise;
   const db = client.db();
   const users = db.collection("users");
 
-  let user = await users.findOne({ phone });
+  const existing = await users.findOne({ phone });
 
-  // 🔒 ROLE LOCK
-  if (!user) {
+  if (!existing) {
+    // FIRST TIME
     await users.insertOne({
       phone,
-      role,                 // user | dealer (FIRST TIME)
-      phoneVerified: false,
-      phoneOtp: "123456",
+      role: finalRole,
+      phoneOtp: otp,
+      otpExpiresAt,
+      phoneVerified: false,      // 🔒 reset here
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
+  } else {
+    // UPDATE EXISTING (IMPORTANT FIX)
+    await users.updateOne(
+      { phone },
+      {
+        $set: {
+          role: finalRole,       // 🔥 ROLE UPDATE (dealer/user)
+          phoneOtp: otp,
+          otpExpiresAt,
+          phoneVerified: false,  // 🔒 always false before verify
+          updatedAt: new Date(),
+        },
+      }
+    );
   }
 
-  if (user && user.role !== role) {
-    return res.status(403).json({
-      ok: false,
-      message: "Role already fixed",
-    });
-  }
+  console.log("OTP:", phone, otp);
 
-  await users.updateOne(
-    { phone },
-    { $set: { phoneOtp: "123456" } }
-  );
-
-  console.log("DUMMY OTP:", phone, "123456");
-
-  res.json({ ok: true });
+  return res.json({
+    ok: true,
+    otp, // local testing
+  });
 }

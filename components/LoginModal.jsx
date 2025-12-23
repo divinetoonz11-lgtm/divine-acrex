@@ -1,104 +1,90 @@
 import React, { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/router";
 
 export default function LoginModal({ open, onClose }) {
-  const router = useRouter();
-
   const [step, setStep] = useState("role"); // role | form | otp
-  const [role, setRole] = useState(null);   // user | dealer
+  const [role, setRole] = useState(""); // "user" | "dealer"
   const [agree, setAgree] = useState(false);
 
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
+  const [serverOtp, setServerOtp] = useState("");
 
-  /* ================= REFERRAL CAPTURE ================= */
-  useEffect(() => {
-    if (router.query.ref) {
-      localStorage.setItem("da_referral_code", router.query.ref);
-    }
-  }, [router.query.ref]);
-
+  /* ========== RESET ========== */
   useEffect(() => {
     if (!open) {
       setStep("role");
-      setRole(null);
+      setRole("");
       setAgree(false);
       setPhone("");
       setOtp("");
+      setServerOtp("");
     }
   }, [open]);
 
   if (!open) return null;
 
-  /* ================= ROLE SELECT ================= */
+  /* ========== ROLE SELECT (CRITICAL) ========== */
   const selectRole = (r) => {
-    setRole(r);
-    localStorage.setItem("da_login_role", r);
+    setRole(r);                 // 🔥 THIS decides URL
     setStep("form");
   };
 
-  /* ================= GOOGLE LOGIN ================= */
+  /* ========== GOOGLE LOGIN (FINAL) ========== */
   const googleLogin = async () => {
+    if (!role) return alert("Select User or Dealer");
     if (!agree) return alert("Accept Terms & Conditions");
 
-    await signIn("google", {
-      callbackUrl: "/auth/redirect",
-      state: JSON.stringify({
-        role: localStorage.getItem("da_login_role"),
-        ref: localStorage.getItem("da_referral_code"),
-      }),
-    });
+    // 🔥🔥 THIS IS THE ONLY PLACE URL IS DECIDED 🔥🔥
+    const callbackUrl =
+      role === "dealer"
+        ? "/auth/redirect?role=dealer"
+        : "/auth/redirect?role=user";
+
+    console.log("LOGIN ROLE:", role);
+    console.log("CALLBACK URL:", callbackUrl);
+
+    await signIn("google", { callbackUrl });
   };
 
-  /* ================= SEND OTP ================= */
+  /* ========== SEND OTP ========== */
   const sendOtp = async () => {
+    if (!role) return alert("Select User or Dealer");
     if (!agree) return alert("Accept Terms & Conditions");
     if (phone.length !== 10) return alert("Enter valid phone number");
 
-    const res = await fetch("/api/otp/send", {
+    const res = await fetch("/api/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phone,
-        role: localStorage.getItem("da_login_role"),
-        referralCode: localStorage.getItem("da_referral_code"),
-      }),
+      body: JSON.stringify({ phone }),
     });
 
     const data = await res.json();
-    if (!data.ok) return alert(data.message || "OTP failed");
+    if (!data.ok) return alert("OTP failed");
 
-    alert("Demo OTP sent: 123456");
+    if (data.otp) {
+      setServerOtp(data.otp);
+      setOtp(data.otp);
+    }
+
     setStep("otp");
   };
 
-  /* ================= VERIFY OTP + LOGIN ================= */
+  /* ========== VERIFY OTP ========== */
   const verifyOtp = async () => {
     if (otp.length !== 6) return alert("Invalid OTP");
 
-    const res = await fetch("/api/otp/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phone,
-        otp,
-        referralCode: localStorage.getItem("da_referral_code"),
-      }),
-    });
-
-    const data = await res.json();
-    if (!data.ok) return alert("OTP invalid");
-
     const login = await signIn("credentials", {
       phone,
-      role: localStorage.getItem("da_login_role"),
-      referralCode: localStorage.getItem("da_referral_code"),
+      otp,
       redirect: false,
     });
 
     if (login?.ok) {
-      window.location.href = "/auth/redirect";
+      window.location.href =
+        role === "dealer"
+          ? "/dealer/dashboard"
+          : "/user/dashboard";
     } else {
       alert("Phone login failed");
     }
@@ -112,9 +98,11 @@ export default function LoginModal({ open, onClose }) {
         {step === "role" && (
           <>
             <h2 style={title}>Select Account Type</h2>
+
             <button style={roleBtn} onClick={() => selectRole("user")}>
               Login as User
             </button>
+
             <button style={roleBtnAlt} onClick={() => selectRole("dealer")}>
               Login as Dealer
             </button>
@@ -128,12 +116,7 @@ export default function LoginModal({ open, onClose }) {
             </h2>
 
             <button style={googleBtn} onClick={googleLogin}>
-              <img
-                src="https://developers.google.com/identity/images/g-logo.png"
-                alt="google"
-                style={{ width: 18, height: 18 }}
-              />
-              <span>Continue with Google</span>
+              Continue with Google
             </button>
 
             <div style={orLine}>OR</div>
@@ -148,7 +131,9 @@ export default function LoginModal({ open, onClose }) {
               style={input}
             />
 
-            <button style={btn} onClick={sendOtp}>Send OTP</button>
+            <button style={btn} onClick={sendOtp}>
+              Send OTP
+            </button>
 
             <label style={agreeBox}>
               <input
@@ -175,13 +160,13 @@ export default function LoginModal({ open, onClose }) {
               style={inputOtp}
             />
 
+            {serverOtp && (
+              <div style={otpBox}>OTP: {serverOtp}</div>
+            )}
+
             <button style={btn} onClick={verifyOtp}>
               Verify & Login
             </button>
-
-            <p style={demoNote}>
-              Demo OTP: <b>123456</b>
-            </p>
           </>
         )}
       </div>
@@ -189,7 +174,8 @@ export default function LoginModal({ open, onClose }) {
   );
 }
 
-/* ================= STYLES (unchanged) ================= */
+/* ========== STYLES ========== */
+
 const overlay = {
   position: "fixed",
   inset: 0,
@@ -199,15 +185,99 @@ const overlay = {
   justifyContent: "center",
   zIndex: 9999,
 };
-const box = { width: 420, maxWidth: "95%", background: "#fff", padding: 24, borderRadius: 14, position: "relative" };
-const close = { position: "absolute", top: 10, right: 12, border: "none", background: "transparent", fontSize: 22, cursor: "pointer" };
-const title = { textAlign: "center", marginBottom: 18, fontWeight: 800 };
-const roleBtn = { width: "100%", padding: 14, marginTop: 12, borderRadius: 10, border: "none", background: "#315DFF", color: "#fff", fontSize: 16, fontWeight: 700 };
-const roleBtnAlt = { ...roleBtn, background: "#0A2E6F" };
-const googleBtn = { width: "100%", padding: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#fff", border: "1px solid #ddd", borderRadius: 8, fontWeight: 700 };
-const orLine = { textAlign: "center", margin: "14px 0", fontWeight: 600, color: "#777" };
-const input = { width: "100%", padding: 12, borderRadius: 8, border: "1px solid #ddd", marginBottom: 10 };
-const inputOtp = { ...input, textAlign: "center", letterSpacing: 6, fontSize: 18, fontWeight: 700 };
-const btn = { width: "100%", padding: 12, background: "#315DFF", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700 };
-const agreeBox = { display: "flex", gap: 8, fontSize: 13, marginTop: 12 };
-const demoNote = { textAlign: "center", fontSize: 12, marginTop: 10, color: "#666" };
+
+const box = {
+  width: 420,
+  background: "#fff",
+  padding: 24,
+  borderRadius: 14,
+  position: "relative",
+};
+
+const close = {
+  position: "absolute",
+  top: 10,
+  right: 12,
+  border: "none",
+  background: "transparent",
+  fontSize: 22,
+  cursor: "pointer",
+};
+
+const title = {
+  textAlign: "center",
+  marginBottom: 18,
+  fontWeight: 800,
+};
+
+const roleBtn = {
+  width: "100%",
+  padding: 14,
+  marginTop: 12,
+  borderRadius: 10,
+  background: "#315DFF",
+  color: "#fff",
+  border: "none",
+  cursor: "pointer",
+};
+
+const roleBtnAlt = {
+  ...roleBtn,
+  background: "#0A2E6F",
+};
+
+const googleBtn = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  cursor: "pointer",
+};
+
+const orLine = {
+  textAlign: "center",
+  margin: "14px 0",
+  color: "#777",
+};
+
+const input = {
+  width: "100%",
+  padding: 12,
+  borderRadius: 8,
+  border: "1px solid #ddd",
+  marginBottom: 10,
+};
+
+const inputOtp = {
+  ...input,
+  textAlign: "center",
+  letterSpacing: 6,
+  fontSize: 18,
+  fontWeight: 700,
+};
+
+const btn = {
+  width: "100%",
+  padding: 12,
+  background: "#315DFF",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+};
+
+const agreeBox = {
+  display: "flex",
+  gap: 8,
+  fontSize: 13,
+  marginTop: 12,
+};
+
+const otpBox = {
+  marginTop: 10,
+  padding: 8,
+  background: "#E8F0FF",
+  borderRadius: 6,
+  textAlign: "center",
+  fontWeight: 800,
+};

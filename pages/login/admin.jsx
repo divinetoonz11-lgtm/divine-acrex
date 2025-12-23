@@ -20,8 +20,9 @@ export default function AdminLogin() {
   }, []);
 
   const loginWithGoogle = async () => {
-    await signIn("google", {
-      callbackUrl: "/admin",
+    // 🔒 ONLY CHANGE IS HERE
+    await signIn("google-user", {
+      callbackUrl: "/auth/redirect",
     });
   };
 

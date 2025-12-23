@@ -1,10 +1,9 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../api/auth/[...nextauth]";
-import clientPromise from "../../lib/mongodb";
+import { getSession } from "next-auth/react";
+import { useEffect } from "react";
+import { useRouter } from "next/router";
 
 export async function getServerSideProps(ctx) {
-  // 1️⃣ Session check
-  const session = await getServerSession(ctx.req, ctx.res, authOptions);
+  const session = await getSession(ctx);
 
   if (!session?.user) {
     return {
@@ -12,30 +11,29 @@ export async function getServerSideProps(ctx) {
     };
   }
 
-  // 2️⃣ DB connect
-  const client = await clientPromise;
-  const db = client.db();
-
-  // 3️⃣ EMAIL + PHONE both supported
-  const user = await db.collection("users").findOne({
-    $or: [
-      session.user.email ? { email: session.user.email } : null,
-      session.user.phone ? { phone: session.user.phone } : null,
-    ].filter(Boolean),
-  });
-
-  // 4️⃣ ROLE BASED REDIRECT (LOCKED)
-  if (user?.role === "dealer") {
-    return {
-      redirect: { destination: "/dealer/dashboard", permanent: false },
-    };
-  }
-
   return {
-    redirect: { destination: "/user/dashboard", permanent: false },
+    props: {
+      role: ctx.query.role || "user",
+    },
   };
 }
 
-export default function RedirectPage() {
+export default function Redirect({ role }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const run = async () => {
+      if (role === "dealer") {
+        // 🔥 THIS MAKES DEALER JUST LIKE USER
+        await fetch("/api/set-dealer", { method: "POST" });
+        router.replace("/dealer/dashboard");
+      } else {
+        router.replace("/user/dashboard");
+      }
+    };
+
+    run();
+  }, [role, router]);
+
   return null;
 }

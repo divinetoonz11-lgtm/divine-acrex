@@ -14,6 +14,13 @@ const UserSchema = new mongoose.Schema(
 
     role: { type: String, default: "user" }, // user OR dealer
 
+    // ✅ REFERRAL CODE (AUTO GENERATED AT LOGIN FOR DEALER)
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+
     // wishlist (property IDs)
     wishlist: [
       {

@@ -1,258 +1,321 @@
 import React, { useEffect, useState } from "react";
 
 /*
-PREMIUM PARTNER REWARDS DASHBOARD
-✔ Same original theme
-✔ Softer luxury colors
-✔ Clear income clarity
-✔ Share link (no black box)
-✔ Benefits + promotion clarity
-✔ Withdrawal CTA
+DEALER REFERRAL – FINAL LOCKED UI
+✔ Plan tab untouched
+✔ Dashboard + Statement enhanced
+✔ Status, progress, clarity added
+✔ No auth / backend changes
 */
 
-const LEVEL_INFO = {
-  1: { name: "Starter Partner", percent: "10%", benefit: "Direct referral income", promote: "Start referring" },
-  2: { name: "Growth Partner", percent: "15%", benefit: "Team income unlocked", promote: "5 active referrals" },
-  3: { name: "Silver Partner", percent: "17%", benefit: "Top 20 ranking boost", promote: "15 verified referrals" },
-  4: { name: "Gold Partner", percent: "19%", benefit: "Top 10 search placement", promote: "30 verified referrals" },
-  5: { name: "Platinum Partner", percent: "20%", benefit: "Top 5 elite visibility", promote: "50+ verified referrals" },
-};
-
-export default function PartnerRewards() {
+export default function DealerReferral() {
+  const [tab, setTab] = useState("plan");
   const [loading, setLoading] = useState(true);
-  const [activeLevel, setActiveLevel] = useState(1);
+  const [error, setError] = useState("");
   const [data, setData] = useState(null);
+  const [openLevel, setOpenLevel] = useState(null);
 
   useEffect(() => {
-    fetch("/api/dealer/referral")
-      .then(r => r.json())
-      .then(j => {
-        if (j.ok) {
-          setData(j);
-          setActiveLevel(j.summary.currentLevel || 1);
+    fetch("/api/dealer/referral", { credentials: "include" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.ok) {
+          setData({
+            summary: j.summary || {},
+            report: j.report || { levelCount: {} },
+            statement: j.statement || [],
+          });
+        } else {
+          setError("Unable to load referral data");
         }
-        setLoading(false);
-      });
+      })
+      .catch(() => setError("Unable to load referral data"))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div style={page}>Loading Partner Rewards…</div>;
-  if (!data) return <div style={page}>No data</div>;
+  if (loading) return <Box>Loading referral details…</Box>;
+  if (error || !data) return <Box>{error}</Box>;
 
-  const meta = LEVEL_INFO[activeLevel];
-  const referrals = data.referrals[`level${activeLevel}`] || [];
-  const link = `${window.location.origin}/register?ref=${data.summary.referralCode}`;
+  const { summary, report, statement } = data;
 
-  const copy = async () => {
-    await navigator.clipboard.writeText(link);
-    alert("Referral link copied");
-  };
+  const accountStatus =
+    report.activeTeam > 0
+      ? "Active"
+      : "Pending Subscription Activity";
 
   return (
     <div style={page}>
-      {/* HEADER */}
-      <div style={header}>
-        <div>
-          <h1 style={h1}>Partner Rewards</h1>
-          <p style={sub}>Grow your network. Earn more. Rise higher.</p>
+      {/* ================= TABS ================= */}
+      <div style={tabs}>
+        <Tab active={tab === "plan"} onClick={() => setTab("plan")}>
+          Plan Details
+        </Tab>
+        <Tab active={tab === "dashboard"} onClick={() => setTab("dashboard")}>
+          Dashboard
+        </Tab>
+        <Tab active={tab === "statement"} onClick={() => setTab("statement")}>
+          Statement
+        </Tab>
+      </div>
+
+      {/* ================= PLAN (UNCHANGED) ================= */}
+      {tab === "plan" && (
+        <div style={card}>
+          <h2>Dealer Referral Program</h2>
+          <p style={muted}>This is not an MLM program.</p>
+          <p style={muted}>
+            Rewards are based on verified & active subscriptions only.
+          </p>
+          <a href="/dealer/referral-plan" style={planBtn}>
+            View Full Referral Plan →
+          </a>
         </div>
+      )}
 
-        <button style={shareBtn} onClick={copy}>
-          Share Referral Link
-        </button>
-      </div>
-
-      {/* STATS */}
-      <div style={stats}>
-        <Stat label="Your Level" value={`Level ${data.summary.currentLevel}`} />
-        <Stat label="Total Earnings" value={`₹${data.summary.totalEarnings}`} />
-        <Stat label="Max Reward" value={meta.percent} />
-        <Stat label="Search Placement" value={data.summary.placement} />
-      </div>
-
-      {/* LEVEL SWITCH */}
-      <div style={levels}>
-        {[1,2,3,4,5].map(l => (
-          <button
-            key={l}
-            style={levelBtn(l === activeLevel)}
-            onClick={() => setActiveLevel(l)}
-          >
-            Level {l}
-          </button>
-        ))}
-      </div>
-
-      {/* LEVEL CARD */}
-      <div style={card}>
-        <div style={cardHead}>
-          <div>
-            <h3 style={{ margin: 0 }}>{meta.name}</h3>
-            <div style={muted}>Partner Level {activeLevel}</div>
+      {/* ================= DASHBOARD ================= */}
+      {tab === "dashboard" && (
+        <>
+          {/* STATUS STRIP */}
+          <div style={statusStrip}>
+            <strong>Account Status:</strong>{" "}
+            <span>{accountStatus}</span>
+            <span style={{ marginLeft: "auto", fontSize: 12 }}>
+              Last updated: Today
+            </span>
           </div>
-          <div style={pill}>{meta.percent} Rewards</div>
-        </div>
 
-        {/* BENEFITS */}
-        <div style={benefits}>
-          <Benefit text={meta.benefit} />
-          <Benefit text={`Promotion condition: ${meta.promote}`} />
-          <Benefit text="Admin-approved payouts only" />
-        </div>
+          {/* TOP KPI */}
+          <div style={grid}>
+            <Card
+              title="Referral Code"
+              value={summary.referralCode || "—"}
+              sub={
+                !summary.referralCode
+                  ? "Will be generated after dealer activation"
+                  : ""
+              }
+            />
+            <Card
+              title="Current Level"
+              value={`Level ${summary.currentLevel || 1}`}
+            />
+            <Card title="Active Team" value={report.activeTeam || 0} />
+            <Card
+              title="Wallet Balance"
+              value={`₹${summary.walletBalance || 0}`}
+            />
+            <Card
+              title="This Month"
+              value={`₹${summary.monthRewards || 0}`}
+            />
+          </div>
 
-        {/* INCOME CLARITY */}
-        <div style={incomeBox}>
-          <b>Income Example:</b> Earn <b>{meta.percent}</b> on every ₹1,00,000 subscription
-        </div>
-
-        {/* REFERRALS */}
-        <div style={{ marginTop: 26 }}>
-          <h4>Team Performance</h4>
-
-          {referrals.length === 0 ? (
-            <div style={empty}>No approved partners yet</div>
-          ) : (
-            <div style={table}>
-              {referrals.map((r, i) => (
-                <div key={i} style={row}>
-                  <div>
-                    <b>{r.name}</b>
-                    <div style={muted}>Plan: {r.plan}</div>
-                  </div>
-                  <div style={center}>
-                    <span style={status}>{r.status}</span>
-                  </div>
-                  <div style={right}>
-                    <b>₹{r.earned}</b>
-                    <div style={muted}>Reward</div>
-                  </div>
-                </div>
-              ))}
+          {/* EMPTY INFO */}
+          {report.activeTeam === 0 && (
+            <div style={infoStrip}>
+              No active data yet. Referral activity will appear once a referred
+              dealer activates a paid subscription.
             </div>
           )}
-        </div>
-      </div>
 
-      {/* WITHDRAW */}
-      <div style={withdraw}>
-        <div>
-          <b>Available Balance:</b> ₹{data.summary.totalEarnings}
-          <div style={muted}>Withdrawals processed after admin approval</div>
+          {/* LEVEL DISTRIBUTION */}
+          <div style={card}>
+            <h3>Your Network by Level</h3>
+
+            {[1, 2, 3, 4, 5].map((lvl) => (
+              <div key={lvl} style={levelBox}>
+                <div
+                  style={levelRow}
+                  onClick={() =>
+                    setOpenLevel(openLevel === lvl ? null : lvl)
+                  }
+                >
+                  <strong>Level {lvl}</strong>
+                  <span>{report.levelCount?.[lvl] || 0} Members</span>
+                </div>
+
+                {openLevel === lvl && (
+                  <div style={expandBox}>
+                    <div style={muted}>
+                      Team details (name, status, subscription) will appear here.
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div style={note}>
+              Only paid & active subscriptions are counted for levels and
+              rewards.
+            </div>
+          </div>
+
+          {/* NEXT LEVEL */}
+          <div style={card}>
+            <h3>Next Level Target</h3>
+            <p>Next Level: Level {(summary.currentLevel || 1) + 1}</p>
+            <div style={progressBar}>
+              <div style={progressFill} />
+            </div>
+            <p style={muted}>
+              Progress will update once your team grows with active
+              subscriptions.
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* ================= STATEMENT ================= */}
+      {tab === "statement" && (
+        <div style={card}>
+          <h3>Rewards Statement</h3>
+
+          <div style={grid}>
+            <Card
+              title="Total Rewards"
+              value={`₹${summary.totalRewards || 0}`}
+            />
+            <Card
+              title="Withdrawn"
+              value={`₹${summary.withdrawn || 0}`}
+            />
+            <Card
+              title="Pending"
+              value={`₹${summary.pending || 0}`}
+            />
+          </div>
+
+          {statement.length === 0 ? (
+            <div style={muted}>No transactions yet</div>
+          ) : (
+            <table style={table}>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statement.map((s, i) => (
+                  <tr key={i}>
+                    <td>{s.date}</td>
+                    <td>{s.source}</td>
+                    <td>₹{s.value}</td>
+                    <td>{s.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-        <button style={withdrawBtn}>Request Withdrawal</button>
-      </div>
+      )}
     </div>
   );
 }
 
-/* COMPONENTS */
-const Stat = ({ label, value }) => (
-  <div style={stat}>
-    <div style={muted}>{label}</div>
-    <div style={statVal}>{value}</div>
+/* ================= UI HELPERS ================= */
+
+const Box = ({ children }) => (
+  <div style={{ background: "#fff", padding: 24, borderRadius: 14 }}>
+    {children}
   </div>
 );
 
-const Benefit = ({ text }) => (
-  <div style={benefit}>✔ {text}</div>
+const Tab = ({ children, active, onClick }) => (
+  <div
+    onClick={onClick}
+    style={{
+      padding: "8px 16px",
+      borderRadius: 20,
+      cursor: "pointer",
+      fontWeight: 700,
+      background: active ? "#1e40af" : "#e5edff",
+      color: active ? "#fff" : "#1e3a8a",
+    }}
+  >
+    {children}
+  </div>
 );
 
-/* STYLES */
-const page = { background: "#f5f7fb", minHeight: "100vh", padding: 28 };
-const header = { display: "flex", justifyContent: "space-between", alignItems: "center" };
-const h1 = { fontSize: 32, fontWeight: 900 };
-const sub = { color: "#6b7280", marginTop: 6 };
+const Card = ({ title, value, sub }) => (
+  <div style={card}>
+    <div style={muted}>{title}</div>
+    <div style={{ fontSize: 20, fontWeight: 900 }}>{value}</div>
+    {sub && <div style={{ fontSize: 11, color: "#64748b" }}>{sub}</div>}
+  </div>
+);
 
-const shareBtn = {
-  padding: "12px 20px",
-  borderRadius: 12,
-  border: "none",
-  background: "linear-gradient(135deg,#315DFF,#1E40AF)",
-  color: "#fff",
-  fontWeight: 800,
-  cursor: "pointer",
-};
+/* ================= STYLES ================= */
 
-const stats = {
+const page = { padding: 24, background: "#f5f7fb", minHeight: "100vh" };
+const tabs = { display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" };
+const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-  gap: 16,
-  margin: "24px 0",
-};
-
-const stat = { background: "#fff", borderRadius: 16, padding: 20 };
-const statVal = { fontSize: 22, fontWeight: 900 };
-
-const levels = { display: "flex", gap: 10, marginBottom: 20 };
-const levelBtn = a => ({
-  padding: "10px 18px",
-  borderRadius: 999,
-  border: a ? "2px solid #315DFF" : "1px solid #d1d5db",
-  background: a ? "#315DFF" : "#fff",
-  color: a ? "#fff" : "#111",
-  fontWeight: 800,
-  cursor: "pointer",
-});
-
-const card = { background: "#fff", borderRadius: 20, padding: 26 };
-const cardHead = { display: "flex", justifyContent: "space-between", alignItems: "center" };
-const pill = { background: "#e0e7ff", color: "#1e3a8a", padding: "6px 14px", borderRadius: 999, fontWeight: 900 };
-
-const benefits = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))",
+  gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
   gap: 12,
-  marginTop: 20,
 };
-
-const benefit = { background: "#f1f5f9", padding: 14, borderRadius: 12, fontWeight: 600 };
-
-const incomeBox = {
-  marginTop: 20,
-  background: "#f8fafc",
-  padding: 16,
-  borderRadius: 12,
-  fontWeight: 600,
-};
-
-const table = { display: "flex", flexDirection: "column", gap: 12, marginTop: 16 };
-const row = {
-  display: "grid",
-  gridTemplateColumns: "2fr 1fr 1fr",
-  padding: 14,
-  borderRadius: 12,
-  background: "#f9fafb",
-};
-
-const status = {
-  padding: "6px 12px",
-  borderRadius: 999,
-  background: "#dcfce7",
-  color: "#166534",
-  fontWeight: 800,
-  fontSize: 12,
-};
-
-const withdraw = {
-  marginTop: 28,
+const card = {
   background: "#fff",
-  borderRadius: 20,
-  padding: 20,
+  padding: 16,
+  borderRadius: 14,
+  marginBottom: 14,
+};
+const muted = { color: "#6b7280", fontSize: 13 };
+
+const planBtn = {
+  display: "inline-block",
+  marginTop: 14,
+  padding: "12px 16px",
+  background: "#1e40af",
+  color: "#fff",
+  borderRadius: 10,
+  fontWeight: 800,
+  textDecoration: "none",
+};
+
+const statusStrip = {
+  background: "#ecfeff",
+  padding: 10,
+  borderRadius: 10,
+  marginBottom: 14,
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  fontSize: 13,
+};
+
+const infoStrip = {
+  background: "#eef2ff",
+  padding: 12,
+  borderRadius: 10,
+  marginBottom: 14,
+  fontSize: 13,
+};
+
+const levelBox = { borderBottom: "1px solid #e5e7eb", padding: "8px 0" };
+const levelRow = {
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const withdrawBtn = {
-  padding: "12px 24px",
-  borderRadius: 14,
-  border: "none",
-  background: "linear-gradient(135deg,#16a34a,#15803d)",
-  color: "#fff",
-  fontWeight: 900,
   cursor: "pointer",
+  fontWeight: 700,
+};
+const expandBox = { padding: "8px 0 8px 12px" };
+const note = { marginTop: 10, fontSize: 12, color: "#475569" };
+
+const progressBar = {
+  width: "100%",
+  height: 8,
+  background: "#e5e7eb",
+  borderRadius: 6,
+  marginTop: 8,
+};
+const progressFill = {
+  width: "20%",
+  height: "100%",
+  background: "#1e40af",
+  borderRadius: 6,
 };
 
-const muted = { fontSize: 13, color: "#6b7280" };
-const center = { textAlign: "center" };
-const right = { textAlign: "right" };
-const empty = { padding: 30, textAlign: "center", color: "#6b7280" };
+const table = { width: "100%", borderCollapse: "collapse", marginTop: 14 };

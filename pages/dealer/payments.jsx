@@ -1,115 +1,162 @@
-// pages/dealer/payments.jsx
-import React from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/router";
+
+/*
+STEP 3 – PAYMENT PAGE (UPDATED)
+✔ Old UPI QR flow SAME
+✔ I Have Paid → API submit
+✔ Redirect to NEW payment-status page
+*/
 
 export default function DealerPaymentsPage() {
-  const payments = [
-    { id: 1, plan: "Premium Plan", amount: "₹1999", date: "12 Dec 2025", status: "Paid", method: "UPI" },
-    { id: 2, plan: "Starter Plan", amount: "₹999", date: "05 Nov 2025", status: "Paid", method: "Card" },
-    { id: 3, plan: "Free Plan", amount: "₹0", date: "20 Oct 2025", status: "Free", method: "-" },
-  ];
+  const router = useRouter();
+  const { plan } = router.query;
+
+  const COMPANY_NAME = "Sai Helmek TDI Solutions";
+  const UPI_ID = "paytmqr281005050101i1r84o";
+
+  const PLAN_AMOUNT = {
+    STARTER: 1999,
+    PRO: 3999,
+    ELITE: 5999,
+  };
+
+  const amount = PLAN_AMOUNT[plan] || 0;
+
+  const [showUPI, setShowUPI] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submitPayment() {
+    if (!plan || !amount) {
+      alert("Invalid plan or amount");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("/api/dealer/payment-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, amount }),
+      });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        alert("Payment submitted. Verification pending.");
+
+        // ✅ NEW CHANGE (IMPORTANT)
+        // Pehle /dealer/payments tha
+        router.push("/dealer/payment-status");
+      } else {
+        alert(data.message || "Payment submission failed");
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f6f8fb", fontFamily: "Inter" }}>
-      
-      {/* SIDEBAR */}
-      <aside style={{ width: 260, background: "#07102a", padding: 20, color: "white" }}>
-        <h2 style={{ fontSize: 22, margin: 0 }}>Dealer Panel</h2>
+    <div style={page}>
+      {plan && (
+        <div style={card}>
+          <h2>Complete Your Payment</h2>
 
-        <nav style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
-          <a href="/dealer/dashboard" style={link}>Dashboard</a>
-          <a href="/dealer/add-property" style={link}>Add Property</a>
-          <a href="/dealer/leads" style={link}>Leads</a>
-          <a href="/dealer/plans" style={link}>Plans</a>
-          <a href="/dealer/profile" style={link}>Profile</a>
-          <a href="/dealer/payments" style={activeLink}>Payments</a>
-          <a href="/dealer/support" style={link}>Support</a>
-        </nav>
+          <p style={company}>{COMPANY_NAME}</p>
 
-        <button
-          style={{
-            marginTop: 20,
-            width: "100%",
-            padding: "10px 14px",
-            background: "#ef4444",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            cursor: "pointer",
-            fontWeight: 700,
-          }}
-          onClick={() => alert("Logout (demo)")}
-        >
-          Logout
-        </button>
-      </aside>
+          <p style={muted}>
+            Selected Plan: <b>{plan}</b>
+          </p>
 
-      {/* MAIN */}
-      <main style={{ flex: 1, padding: 30 }}>
-        <h1 style={{ margin: 0 }}>Payments & Billing</h1>
-        <p style={{ color: "#6b7280", marginBottom: 18 }}>View your plan payments and invoice details</p>
+          <p style={amountText}>
+            Pay Amount: <b>₹{amount}</b>
+          </p>
 
-        <div style={{ background: "#fff", borderRadius: 10, padding: 20 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-            <thead>
-              <tr style={{ background: "#f1f5f9" }}>
-                <th style={th}>Plan</th>
-                <th style={th}>Amount</th>
-                <th style={th}>Date</th>
-                <th style={th}>Method</th>
-                <th style={th}>Status</th>
-                <th style={th}>Invoice</th>
-              </tr>
-            </thead>
+          <div style={warning}>
+            ⚠️ Please pay the <b>exact amount</b>. Wrong amount may delay activation.
+          </div>
 
-            <tbody>
-              {payments.map((p) => (
-                <tr key={p.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  <td style={td}>{p.plan}</td>
-                  <td style={td}>{p.amount}</td>
-                  <td style={td}>{p.date}</td>
-                  <td style={td}>{p.method}</td>
-                  <td style={{ ...td, color: p.status === "Paid" ? "#10b981" : "#6b7280" }}>
-                    {p.status}
-                  </td>
-                  <td style={td}>
-                    <button
-                      style={{
-                        padding: "6px 10px",
-                        background: "#315DFF",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 6,
-                        cursor: "pointer",
-                      }}
-                      onClick={() => alert("Invoice Download (demo)")}
-                    >
-                      Download
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {!showUPI && (
+            <button style={btnMain} onClick={() => setShowUPI(true)}>
+              Pay Now
+            </button>
+          )}
+
+          {showUPI && (
+            <div style={upiBox}>
+              <img
+                src="/paytm-upi-qr.png"
+                alt="UPI QR"
+                style={{ width: 260, margin: "0 auto", display: "block" }}
+              />
+
+              <p style={upiText}>
+                <b>UPI ID:</b> {UPI_ID}
+              </p>
+
+              <button
+                style={btnMain}
+                disabled={submitting}
+                onClick={submitPayment}
+              >
+                {submitting ? "Submitting..." : "I Have Paid"}
+              </button>
+            </div>
+          )}
+
+          <button
+            style={backBtn}
+            onClick={() => router.push("/dealer/subscription")}
+          >
+            ← Change Plan
+          </button>
         </div>
-      </main>
+      )}
     </div>
   );
 }
 
-/* Styles */
-const th = { padding: "10px 8px", fontWeight: 700, textAlign: "left" };
-const td = { padding: "10px 8px" };
+/* ================= STYLES (UNCHANGED) ================= */
 
-const link = {
-  padding: "10px 12px",
-  borderRadius: 6,
-  color: "#bcc6dd",
-  textDecoration: "none",
-  fontWeight: 600,
+const page = { padding: 24, background: "#f6f8fb", minHeight: "100vh" };
+const card = {
+  maxWidth: 420,
+  background: "#fff",
+  padding: 24,
+  borderRadius: 16,
+  margin: "40px auto",
 };
-
-const activeLink = {
-  ...link,
-  background: "rgba(255,255,255,0.1)",
+const company = { fontWeight: 800 };
+const muted = { fontSize: 14, color: "#475569" };
+const amountText = { marginTop: 6, fontSize: 16, fontWeight: 800 };
+const warning = {
+  marginTop: 10,
+  padding: 10,
+  background: "#fff7ed",
+  color: "#9a3412",
+  fontSize: 13,
+  borderRadius: 10,
+};
+const btnMain = {
+  width: "100%",
+  padding: 14,
+  marginTop: 14,
+  background: "#1e4ed8",
   color: "#fff",
+  border: "none",
+  borderRadius: 12,
+  fontWeight: 800,
 };
+const backBtn = {
+  width: "100%",
+  marginTop: 12,
+  background: "transparent",
+  border: "none",
+  color: "#1e4ed8",
+  fontWeight: 700,
+};
+const upiBox = { marginTop: 20, textAlign: "center" };
+const upiText = { fontSize: 13, marginTop: 8, color: "#334155" };

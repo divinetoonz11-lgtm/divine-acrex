@@ -1,70 +1,44 @@
 // pages/api/user/profile.js
-import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-
-const prisma = new PrismaClient();
+import clientPromise from "../../../lib/mongodb";
 
 export default async function handler(req, res) {
   try {
     const session = await getServerSession(req, res, authOptions);
 
     if (!session?.user?.email) {
-      return res.status(401).json({ ok: false, msg: "Not logged in" });
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
     }
 
-    const email = session.user.email;
-    const name = session.user.name || "";
+    const client = await clientPromise;
+    const db = client.db();
 
-    // ---------------- ENSURE USER ----------------
-    const user = await prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: { email, role: "USER" },
+    const user = await db.collection("users").findOne({
+      email: session.user.email,
+      role: "user",
     });
 
-    // ---------------- GET PROFILE ----------------
-    if (req.method === "GET") {
-      const profile = await prisma.profile.upsert({
-        where: { userId: user.id },
-        update: {
-          fullName: name,
-        },
-        create: {
-          userId: user.id,
-          fullName: name,
-          profileCompleted: false,
-        },
-      });
-
-      return res.json({
-        name: profile.fullName || "",
-        email, // email USER table se
-        phone: profile.phone || "",
-        dob: profile.dob || "",
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        message: "User not found",
       });
     }
 
-    // ---------------- UPDATE PROFILE ----------------
-    if (req.method === "PUT") {
-      const { phone = "", dob = "" } = req.body || {};
-
-      await prisma.profile.update({
-        where: { userId: user.id },
-        data: {
-          phone,
-          dob,
-          profileCompleted: true,
-          updatedAt: new Date(),
-        },
-      });
-
-      return res.json({ ok: true });
-    }
-
-    res.status(405).end();
-  } catch (e) {
-    console.error("PROFILE API ERROR:", e);
-    return res.status(500).json({ ok: false, error: "Profile save failed" });
+    return res.status(200).json({
+      ok: true,
+      profile: {
+        name: user.name || "",
+        email: user.email,
+        phone: user.phone || "",
+      },
+    });
+  } catch (err) {
+    console.error("USER PROFILE ERROR:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Server error",
+    });
   }
 }

@@ -1,31 +1,15 @@
 /* =========================
-   HERO SLIDER SIZE INCREASE
+   GLOBAL RESET (SAFE)
    ========================= */
-
-.hero,
-.hero-slider,
-.heroSection,
-.slider {
-  height: 75vh;        /* desktop par bada */
-  min-height: 520px;   /* strong hero feel */
+* {
+  box-sizing: border-box;
 }
 
-/* image / background proper fit */
-.hero img,
-.hero-slider img,
-.slider img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
 }
 
-/* MOBILE ADJUSTMENT */
-@media (max-width: 768px) {
-  .hero,
-  .hero-slider,
-  .heroSection,
-  .slider {
-    height: 55vh;
-    min-height: 360px;
-  }
-}
+/* ❌ DO NOT USE generic hero/slider heights globally */
+/* (Removed .hero, .slider, .hero-slider, .heroSection blocks) */
