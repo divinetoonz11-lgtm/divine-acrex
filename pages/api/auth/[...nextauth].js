@@ -5,6 +5,8 @@ import clientPromise from "../../../lib/mongodb";
 
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true, // ✅ SIRF YEH ADD KIYA HAI (Railway fix)
+
   session: { strategy: "jwt" },
 
   providers: [
@@ -42,7 +44,6 @@ export const authOptions = {
         if (existing) {
           token.role = existing.role;
         } else {
-          // default user create (as before)
           await users.insertOne({
             email,
             role: "user",
