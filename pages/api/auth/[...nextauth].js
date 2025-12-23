@@ -5,7 +5,7 @@ import clientPromise from "../../../lib/mongodb";
 
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true, // ✅ SIRF YEH ADD KIYA HAI (Railway fix)
+  trustHost: true, // Railway fix (already working)
 
   session: { strategy: "jwt" },
 
@@ -32,13 +32,15 @@ export const authOptions = {
       return session;
     },
 
-    async jwt({ token, account }) {
-      if (account && token.email) {
+    async jwt({ token, account, profile }) {
+      // 🔒 SAFE GUARD – logic same, crash fix
+      if (account && (token.email || profile?.email)) {
         const client = await clientPromise;
         const db = client.db();
         const users = db.collection("users");
 
-        const email = token.email.toLowerCase();
+        const email = (token.email || profile.email).toLowerCase();
+
         const existing = await users.findOne({ email });
 
         if (existing) {
@@ -51,7 +53,10 @@ export const authOptions = {
           });
           token.role = "user";
         }
+
+        token.email = email;
       }
+
       return token;
     },
   },
