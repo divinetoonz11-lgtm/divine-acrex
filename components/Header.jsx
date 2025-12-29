@@ -36,7 +36,7 @@ export default function Header() {
             </Link>
           </div>
 
-          {/* CENTER — DESKTOP NAV (UNCHANGED) */}
+          {/* CENTER */}
           <div className={styles.center}>
             <nav className={styles.navBox}>
               <ul className={styles.navList}>
@@ -47,6 +47,7 @@ export default function Header() {
                 <li><Link className={styles.navLink} href="/for-tenants">For Tenants</Link></li>
                 <li><Link className={styles.navLink} href="/for-owners">For Owners</Link></li>
                 <li><Link className={styles.navLink} href="/for-dealers">For Dealers / Builders</Link></li>
+                <li><Link className={styles.navLink} href="/dealer/register">Become a Dealer</Link></li>
                 <li><Link className={styles.navLink} href="/insights">Insights</Link></li>
                 <li>
                   <a
@@ -63,15 +64,6 @@ export default function Header() {
 
           {/* RIGHT */}
           <div className={styles.right}>
-            {/* Bell */}
-            <button className={styles.iconBtnWhite} type="button">
-              <img
-                src="/images/notify-icon.png"
-                alt="Notifications"
-                className={styles.iconImg}
-              />
-            </button>
-
             {/* Login */}
             <button
               className={`${styles.iconBtnWhite} ${styles.iconAvatar}`}
@@ -84,7 +76,7 @@ export default function Header() {
               </svg>
             </button>
 
-            {/* ☰ Mobile Menu Button */}
+            {/* Mobile Menu */}
             <button
               className={styles.mobileMenuBtn}
               type="button"
@@ -97,7 +89,7 @@ export default function Header() {
         </div>
       </header>
 
-      {/* ================= MOBILE SIDEBAR (SINGLE SOURCE) ================= */}
+      {/* ================= MOBILE SIDEBAR ================= */}
       <MobileMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}

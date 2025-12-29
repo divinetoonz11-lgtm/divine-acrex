@@ -1,0 +1,16 @@
+/* styles/admin-mobile.css */
+/* MOBILE UX – TOP CLASS */
+@media (max-width: 768px) {
+  .admin-main {
+    padding: 16px !important;
+  }
+
+  table {
+    min-width: 720px;
+  }
+
+  .admin-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

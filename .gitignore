@@ -8,7 +8,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # ===============================
-# Environment variables
+# Environment variables (SECURITY 🔒)
 # ===============================
 .env
 .env.*
@@ -44,14 +44,17 @@ logs
 *.log
 
 # ===============================
-# Cache
+# Cache / Temp
 # ===============================
 .cache/
 .tmp/
 
 # ===============================
-# Backup / Temp
+# Backup / Chat / Old files
 # ===============================
+_BACKUP_BEFORE_LOGIN_FIX/
 *.bak
 *.backup
 *.old
+*.chatbackup.js
+*.role-backup.jsx

@@ -3,14 +3,19 @@ import { authOptions } from "./auth/[...nextauth]";
 import clientPromise from "../../lib/mongodb";
 
 export default async function handler(req, res) {
+  console.log("API HIT: /api/set-dealer");
+
   if (req.method !== "POST") {
+    console.log("WRONG METHOD", req.method);
     return res.status(405).end();
   }
 
   const session = await getServerSession(req, res, authOptions);
+  console.log("SESSION:", session);
 
   if (!session?.user?.email) {
-    return res.status(401).json({ ok: false, reason: "no session" });
+    console.log("NO SESSION EMAIL");
+    return res.status(401).json({ ok: false });
   }
 
   const client = await clientPromise;
@@ -19,21 +24,16 @@ export default async function handler(req, res) {
 
   const email = session.user.email.toLowerCase();
 
-  // 🔥 EXACT USER JAISA CREATE / UPDATE
   await users.updateOne(
     { email },
     {
-      $set: {
-        email,
-        role: "dealer",
-        updatedAt: new Date(),
-      },
-      $setOnInsert: {
-        createdAt: new Date(),
-      },
+      $set: { role: "dealer", updatedAt: new Date() },
+      $setOnInsert: { createdAt: new Date() },
     },
     { upsert: true }
   );
 
-  return res.json({ ok: true, role: "dealer" });
+  console.log("DEALER SET FOR:", email);
+
+  return res.json({ ok: true });
 }

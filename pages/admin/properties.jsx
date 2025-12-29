@@ -1,188 +1,288 @@
 // pages/admin/properties.jsx
 import { useEffect, useState } from "react";
+import AdminLayout from "../../components/admin/AdminLayout";
 import AdminGuard from "../../components/AdminGuard";
 
 function AdminPropertiesPage() {
-  const [properties, setProperties] = useState([]);
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);
-  const [viewItem, setViewItem] = useState(null);
-  const key = typeof window !== "undefined" ? (sessionStorage.getItem("admin_key") || process.env.NEXT_PUBLIC_ADMIN_KEY) : process.env.NEXT_PUBLIC_ADMIN_KEY;
 
-  useEffect(() => { loadProperties(); }, []);
+  // pagination
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
 
-  async function loadProperties() {
+  // filter
+  const [status, setStatus] = useState("pending");
+
+  useEffect(() => {
+    load(page, status);
+  }, [page, status]);
+
+  async function load(p = 1, s = "pending") {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/properties/get", {
-        headers: { "x-admin-key": key },
-      });
-      const data = await res.json();
-      if (res.ok) setProperties(data.properties || []);
-      else { setProperties([]); alert(data.error || "Failed to load properties"); }
-    } catch (err) {
-      setProperties([]); alert("Failed to load properties: " + err.message);
-    } finally { setLoading(false); }
-  }
-
-  async function performAction(propId, action) {
-    // action: approve | reject | deactivate (or custom)
-    if (!confirm(`Confirm ${action} for this property?`)) return;
-    setBusyId(propId);
-    try {
-      const res = await fetch("/api/admin/properties/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-key": key },
-        body: JSON.stringify({ id: propId, action }),
-      });
+      const res = await fetch(
+        `/api/admin/properties?page=${p}&limit=${limit}&status=${s}`
+      );
       const data = await res.json();
       if (res.ok) {
-        // Expect updated property in response
-        if (data.property) {
-          setProperties(prev => prev.map(p => p._id === data.property._id ? data.property : p));
-        } else {
-          // fallback: reload list
-          await loadProperties();
-        }
-      } else alert(data.error || "Action failed");
-    } catch (err) {
-      alert("Action failed: " + err.message);
-    } finally { setBusyId(null); }
+        setItems(data.properties || []);
+        setTotal(data.total || 0);
+      } else {
+        setItems([]);
+      }
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function updateStatus(propId, status) {
-    if (!confirm(`Set status "${status}" for this property?`)) return;
-    setBusyId(propId);
+  async function updateStatus(id, nextStatus) {
+    setBusyId(id);
     try {
       const res = await fetch("/api/admin/properties/update-status", {
         method: "PUT",
-        headers: { "Content-Type": "application/json", "x-admin-key": key },
-        body: JSON.stringify({ id: propId, status }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: nextStatus }),
       });
       const data = await res.json();
       if (res.ok) {
-        setProperties(prev => prev.map(p => p._id === data.property._id ? data.property : p));
-      } else alert(data.error || "Update failed");
-    } catch (err) {
-      alert("Update failed: " + err.message);
-    } finally { setBusyId(null); }
+        setItems(prev =>
+          prev.map(p => (p._id === data.property._id ? data.property : p))
+        );
+      }
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  async function deleteProperty(propId) {
-    if (!confirm("Permanently delete this property?")) return;
-    setBusyId(propId);
+  async function toggleFeatured(id, featured) {
+    setBusyId(id);
     try {
-      const res = await fetch("/api/admin/properties/delete", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json", "x-admin-key": key },
-        body: JSON.stringify({ id: propId }),
+      const res = await fetch("/api/admin/properties/feature", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, featured: !featured }),
       });
       const data = await res.json();
-      if (res.ok) setProperties(prev => prev.filter(p => p._id !== propId));
-      else alert(data.error || "Delete failed");
-    } catch (err) {
-      alert("Delete failed: " + err.message);
-    } finally { setBusyId(null); }
+      if (res.ok) {
+        setItems(prev =>
+          prev.map(p => (p._id === data.property._id ? data.property : p))
+        );
+      }
+    } finally {
+      setBusyId(null);
+    }
   }
 
+  const pages = Math.ceil(total / limit);
+
   return (
-    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <h2 style={{ margin: 0 }}>Properties</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={loadProperties} style={btnSecondary}>{loading ? "Refreshing..." : "Refresh"}</button>
-        </div>
-      </div>
-
-      <div style={{ overflowX: "auto", background: "#fff", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
-          <thead style={{ background: "#f8fafc" }}>
-            <tr>
-              <th style={th}>Title</th>
-              <th style={th}>Dealer</th>
-              <th style={th}>Price</th>
-              <th style={th}>Location</th>
-              <th style={th}>Status</th>
-              <th style={th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && properties.length === 0 && <tr><td colSpan={6} style={{ padding: 20, textAlign: "center" }}>Loading properties…</td></tr>}
-            {!loading && properties.length === 0 && <tr><td colSpan={6} style={{ padding: 20, textAlign: "center" }}>No properties found.</td></tr>}
-            {properties.map(p => (
-              <tr key={p._id} style={{ borderBottom: "1px solid #eef2f6" }}>
-                <td style={td}>{p.title || "-"}</td>
-                <td style={td}>{(p.dealer && p.dealer.name) || p.dealerName || "-"}</td>
-                <td style={td}>{p.price ? (typeof p.price === "number" ? p.price.toLocaleString() : p.price) : "-"}</td>
-                <td style={td}>{p.location || "-"}</td>
-                <td style={td}>{p.status || "pending"}</td>
-                <td style={td}>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button disabled={busyId === p._id} onClick={() => setViewItem(p)} style={btnSmall}>View</button>
-
-                    <button
-                      disabled={busyId === p._id}
-                      onClick={() => performAction(p._id, p.status === "approved" ? "reject" : "approve")}
-                      style={btnSmall}
-                    >
-                      {busyId === p._id ? "…" : (p.status === "approved" ? "Reject" : "Approve")}
-                    </button>
-
-                    <button
-                      disabled={busyId === p._id}
-                      onClick={() => updateStatus(p._id, p.status === "deactivated" ? "active" : "deactivated")}
-                      style={btnSmall}
-                    >
-                      {busyId === p._id ? "…" : (p.status === "deactivated" ? "Activate" : "Deactivate")}
-                    </button>
-
-                    <button disabled={busyId === p._id} onClick={() => deleteProperty(p._id)} style={btnDanger}>
-                      {busyId === p._id ? "…" : "Delete"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* View modal */}
-      {viewItem && (
-        <div style={modalOuter} onMouseDown={(e) => { if (e.target === e.currentTarget) setViewItem(null); }}>
-          <div style={modalBox}>
-            <h3 style={{ marginTop: 0 }}>{viewItem.title}</h3>
-            <p><strong>Dealer:</strong> {(viewItem.dealer && viewItem.dealer.name) || viewItem.dealerName || "-"}</p>
-            <p><strong>Price:</strong> {viewItem.price || "-"}</p>
-            <p><strong>Location:</strong> {viewItem.location || "-"}</p>
-            <p><strong>Status:</strong> {viewItem.status || "-"}</p>
-            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button onClick={() => setViewItem(null)} style={btnCancel}>Close</button>
-            </div>
+    <AdminLayout>
+      <div style={{ maxWidth: 1500 }}>
+        {/* HEADER */}
+        <div style={headerRow}>
+          <div>
+            <h1 style={h1}>Property Management</h1>
+            <p style={sub}>Approve, block, feature listings</p>
           </div>
+
+          <select
+            value={status}
+            onChange={e => {
+              setPage(1);
+              setStatus(e.target.value);
+            }}
+            style={select}
+          >
+            <option value="pending">Pending</option>
+            <option value="live">Live</option>
+            <option value="blocked">Blocked</option>
+            <option value="featured">Featured</option>
+            <option value="all">All</option>
+          </select>
         </div>
-      )}
-    </div>
+
+        {/* TABLE */}
+        <div style={card}>
+          <table style={table}>
+            <thead style={{ background: "#f8fafc" }}>
+              <tr>
+                <th style={th}>Property</th>
+                <th style={th}>Dealer</th>
+                <th style={th}>Status</th>
+                <th style={th}>Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={4} style={empty}>Loading properties…</td>
+                </tr>
+              )}
+
+              {!loading && items.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={empty}>No properties found</td>
+                </tr>
+              )}
+
+              {items.map(p => (
+                <tr key={p._id} style={row}>
+                  <td style={td}>
+                    <div style={propWrap}>
+                      <div style={propTitle}>{p.title || "Untitled Property"}</div>
+                      <div style={propMeta}>
+                        {p.city || "-"}
+                        {p.price ? ` • ₹${p.price}` : ""}
+                      </div>
+                      {p.featured && <span style={chipBlue}>FEATURED</span>}
+                    </div>
+                  </td>
+
+                  <td style={td}>
+                    <div>{p.dealerEmail || "-"}</div>
+                    <div style={mutedSmall}>
+                      {p.createdAt
+                        ? new Date(p.createdAt).toLocaleDateString()
+                        : "-"}
+                    </div>
+                  </td>
+
+                  <td style={td}>
+                    {p.status === "pending" && <span style={chipAmber}>PENDING</span>}
+                    {p.status === "live" && <span style={chipGreen}>LIVE</span>}
+                    {p.status === "blocked" && <span style={chipRed}>BLOCKED</span>}
+                  </td>
+
+                  <td style={td}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        disabled={busyId === p._id}
+                        onClick={() =>
+                          updateStatus(
+                            p._id,
+                            p.status === "live" ? "blocked" : "live"
+                          )
+                        }
+                        style={btnPrimary}
+                      >
+                        {p.status === "live" ? "Block" : "Approve"}
+                      </button>
+
+                      <button
+                        disabled={busyId === p._id}
+                        onClick={() => toggleFeatured(p._id, p.featured)}
+                        style={btnSecondary}
+                      >
+                        {p.featured ? "Unfeature" : "Feature"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* PAGINATION */}
+        {pages > 1 && (
+          <div style={pager}>
+            {Array.from({ length: pages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i + 1)}
+                style={{
+                  ...pageBtn,
+                  ...(page === i + 1 ? pageBtnActive : {}),
+                }}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
 
-/* wrap with AdminGuard */
-export default function PropertiesWithGuard(props) {
+export default function Guarded() {
   return (
     <AdminGuard>
-      <AdminPropertiesPage {...props} />
+      <AdminPropertiesPage />
     </AdminGuard>
   );
 }
 
-/* styles */
-const th = { textAlign: "left", padding: "10px 12px", fontSize: 13, color: "#374151" };
-const td = { padding: "10px 12px", fontSize: 14, color: "#111827" };
+/* ===== STYLES ===== */
 
-const btnSecondary = { padding: "8px 12px", background: "#f3f4f6", color: "#111827", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer" };
-const btnSmall = { padding: "6px 10px", background: "#11294a", color: "#fff", borderRadius: 6, border: "none", cursor: "pointer" };
-const btnDanger = { padding: "6px 10px", background: "#ef4444", color: "#fff", borderRadius: 6, border: "none", cursor: "pointer" };
-const btnCancel = { padding: "6px 10px", background: "#e5e7eb", color: "#111827", borderRadius: 6, border: "none", cursor: "pointer" };
+const headerRow = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 16,
+};
+const h1 = { fontSize: 26, fontWeight: 800 };
+const sub = { color: "#64748b", marginTop: 4 };
+const select = { padding: 8, borderRadius: 8, border: "1px solid #e5e7eb" };
 
-const modalOuter = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1200, padding: 16 };
-const modalBox = { width: "min(720px, 98%)", background: "#fff", borderRadius: 10, padding: 18, boxShadow: "0 6px 32px rgba(16,24,40,0.18)" };
+const card = {
+  background: "#fff",
+  borderRadius: 14,
+  boxShadow: "0 8px 24px rgba(15,23,42,.06)",
+  overflowX: "auto",
+};
+
+const table = { width: "100%", minWidth: 1200, borderCollapse: "collapse" };
+const th = { textAlign: "left", padding: "14px 16px", fontSize: 13, color: "#475569" };
+const td = { padding: "14px 16px", verticalAlign: "middle" };
+const row = { borderBottom: "1px solid #eef2f6" };
+const empty = { padding: 24, textAlign: "center", color: "#64748b" };
+
+const propWrap = { display: "flex", flexDirection: "column", gap: 6 };
+const propTitle = { fontWeight: 700 };
+const propMeta = { fontSize: 13, color: "#64748b" };
+const mutedSmall = { fontSize: 12, color: "#94a3b8" };
+
+const chipBase = {
+  display: "inline-block",
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 800,
+};
+const chipAmber = { ...chipBase, background: "#fef3c7", color: "#92400e" };
+const chipGreen = { ...chipBase, background: "#dcfce7", color: "#166534" };
+const chipRed = { ...chipBase, background: "#fee2e2", color: "#991b1b" };
+const chipBlue = { ...chipBase, background: "#e0e7ff", color: "#1e40af" };
+
+const btnPrimary = {
+  padding: "8px 12px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+};
+const btnSecondary = {
+  padding: "8px 12px",
+  background: "#1e3a8a",
+  color: "#fff",
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+};
+
+const pager = { marginTop: 18, display: "flex", gap: 6 };
+const pageBtn = {
+  padding: "6px 12px",
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  background: "#f9fafb",
+};
+const pageBtnActive = { background: "#2563eb", color: "#fff" };

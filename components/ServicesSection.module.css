@@ -1,11 +1,14 @@
-﻿.svc-root {
+﻿/* ===============================
+   ROOT SECTION
+   =============================== */
+.svc-root {
   background: #f4f7ff;
   padding: 60px 20px;
 }
 
 .svc-wrap {
   max-width: 1400px;
-  margin: auto;
+  margin: 0 auto;
 }
 
 .svc-title {
@@ -16,12 +19,20 @@
   margin-bottom: 40px;
 }
 
+/* ===============================
+   🔒 DESKTOP HARD LOCK: 5–5
+   =============================== */
 .svc-grid-5 {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, 1fr); /* 🔥 ALWAYS 5 */
   gap: 22px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
+/* ===============================
+   CARD & LINK
+   =============================== */
 .svc-link {
   text-decoration: none;
   color: inherit;
@@ -30,27 +41,34 @@
 .svc-card {
   background: #ffffff;
   border-radius: 16px;
-  padding: 16px;
+  padding: 14px; /* slightly tighter for image */
   text-align: center;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden; /* image overflow clean */
 }
 
 .svc-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 22px rgba(0,0,0,0.12);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.12);
 }
 
+/* ===============================
+   🔥 IMAGE (THODI WIDE LOOK)
+   =============================== */
 .svc-thumb {
-  width: 100%;
-  height: 160px;
+  width: 108%;               /* 🔥 visually wider */
+  height: 170px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 14px;
   display: block;
-  margin-bottom: 12px;
+  margin: -6px auto 12px;    /* thoda bahar nikle */
 }
 
+/* ===============================
+   TEXT
+   =============================== */
 .svc-name {
   font-size: 16px;
   font-weight: 700;
@@ -64,16 +82,42 @@
   line-height: 1.4;
 }
 
-/* Responsive */
-@media (max-width: 1200px) {
-  .svc-grid-5 { grid-template-columns: repeat(4, 1fr); }
-}
+/* ===============================
+   📱 RESPONSIVE (SAFE)
+   =============================== */
+
+/* Tablet */
 @media (max-width: 992px) {
-  .svc-grid-5 { grid-template-columns: repeat(3, 1fr); }
+  .svc-grid-5 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .svc-thumb {
+    width: 104%;
+    height: 160px;
+  }
 }
+
+/* Mobile */
 @media (max-width: 768px) {
-  .svc-grid-5 { grid-template-columns: repeat(2, 1fr); }
+  .svc-grid-5 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .svc-thumb {
+    width: 100%;
+    height: 150px;
+    margin: 0 auto 12px;
+  }
 }
+
+/* Small Mobile */
 @media (max-width: 480px) {
-  .svc-grid-5 { grid-template-columns: 1fr; }
+  .svc-grid-5 {
+    grid-template-columns: 1fr;
+  }
+
+  .svc-thumb {
+    height: 140px;
+  }
 }

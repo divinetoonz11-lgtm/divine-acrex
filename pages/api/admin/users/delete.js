@@ -1,24 +1,42 @@
-// pages/api/admin/users/delete.js
 import dbConnect from "../../../../utils/dbConnect";
 import User from "../../../../models/User";
+import adminGuard from "../../../../utils/adminGuard";
 
 export default async function handler(req, res) {
-  await dbConnect();
+  // 🔐 ADMIN CHECK (SERVER SAFE)
+  const ok = await adminGuard(req, res);
+  if (!ok) return;
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Only POST allowed" });
+  if (req.method !== "DELETE") {
+    return res.status(405).json({
+      error: "Only DELETE allowed",
+    });
   }
 
   try {
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ success: false, message: "userId missing" });
+    await dbConnect();
 
-    const deleted = await User.findByIdAndDelete(userId);
-    if (!deleted) return res.status(404).json({ success: false, message: "User not found" });
+    const { id } = req.body || {};
+    if (!id) {
+      return res.status(400).json({
+        error: "Missing user id",
+      });
+    }
 
-    return res.status(200).json({ success: true, message: "User deleted", user: deleted });
+    const deleted = await User.findByIdAndDelete(id).lean();
+    if (!deleted) {
+      return res.status(404).json({
+        error: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+    });
   } catch (err) {
-    console.error("USER DELETE ERROR:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("ADMIN USER DELETE ERROR:", err);
+    return res.status(500).json({
+      error: "Server error",
+    });
   }
 }

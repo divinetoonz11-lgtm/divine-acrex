@@ -1,165 +1,271 @@
-// pages/admin/users.jsx
 import { useEffect, useState } from "react";
-import AdminGuard from "../../components/AdminGuard";
+import AdminLayout from "../../components/admin/AdminLayout";
 
-function AdminUsersPage() {
+/* ================= CONFIG ================= */
+
+const TABS = [
+  { key: "all", label: "All Users" },
+  { key: "active", label: "Active Users" },
+  { key: "dealer", label: "Dealers" },
+  { key: "sub-admin", label: "Sub Admins" },
+  { key: "kyc-pending", label: "KYC Pending" },
+  { key: "kyc-approved", label: "KYC Approved" },
+  { key: "blocked", label: "Blocked Users" },
+  { key: "deleted", label: "Deleted Users" },
+];
+
+const ROLES = ["user", "dealer", "sub-admin"];
+const LIMIT = 20;
+
+/* ================= PAGE ================= */
+
+export default function AdminUsersPage() {
+  const [tab, setTab] = useState("all");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [busyId, setBusyId] = useState(null); // show loading for single action
-  const key = typeof window !== "undefined" ? (sessionStorage.getItem("admin_key") || process.env.NEXT_PUBLIC_ADMIN_KEY) : process.env.NEXT_PUBLIC_ADMIN_KEY;
+
+  // filters
+  const [search, setSearch] = useState("");
+  const [role, setRole] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  // pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // edit
+  const [editId, setEditId] = useState(null);
+
+  /* ================= LOAD USERS ================= */
+
+  async function loadUsers(p = 1) {
+    setLoading(true);
+
+    try {
+      const qs = new URLSearchParams();
+      qs.append("page", p);
+      qs.append("limit", LIMIT);
+
+      if (search) qs.append("q", search);
+      if (role) qs.append("role", role);
+      if (fromDate) qs.append("from", fromDate);
+      if (toDate) qs.append("to", toDate);
+
+      // tab filters
+      if (tab === "dealer") qs.append("role", "dealer");
+      if (tab === "sub-admin") qs.append("role", "sub-admin");
+      if (tab === "kyc-pending") qs.append("kycStatus", "pending");
+      if (tab === "kyc-approved") qs.append("kycStatus", "approved");
+      if (tab === "blocked") qs.append("status", "blocked");
+      if (tab === "deleted") qs.append("status", "deleted");
+
+      const res = await fetch("/api/admin/users?" + qs.toString());
+      const data = await res.json();
+
+      setUsers(data.users || []);
+      setTotalPages(data.totalPages || 1);
+      setPage(p);
+    } catch (e) {
+      console.error("Load users failed", e);
+      setUsers([]);
+    }
+
+    setLoading(false);
+  }
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    loadUsers(1);
+  }, [tab]);
 
-  async function loadUsers() {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/admin/users/get", {
-        headers: { "x-admin-key": key },
-      });
-      const data = await res.json();
-      if (res.ok) setUsers(data.users || []);
-      else {
-        setUsers([]);
-        alert(data.error || "Failed to load users");
-      }
-    } catch (err) {
-      alert("Failed to load users: " + err.message);
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
+  /* ================= ACTIONS ================= */
+
+  async function saveUser(u) {
+    await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: u._id,
+        name: u.name,
+        mobile: u.mobile,
+        role: u.role,
+      }),
+    });
+    setEditId(null);
+    loadUsers(page);
   }
 
-  async function updateStatus(userId, newStatus) {
-    if (!confirm(`Are you sure to set status "${newStatus}" for this user?`)) return;
-    setBusyId(userId);
-    try {
-      const res = await fetch("/api/admin/users/update-status", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key": key,
-        },
-        body: JSON.stringify({ id: userId, status: newStatus }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        // server returns updated user (recommended)
-        setUsers(prev => prev.map(u => u._id === data.user._id ? data.user : u));
-      } else {
-        alert(data.error || "Update failed");
-      }
-    } catch (err) {
-      alert("Update failed: " + err.message);
-    } finally {
-      setBusyId(null);
-    }
+  async function deleteUser(id) {
+    if (!confirm("Delete this user?")) return;
+    await fetch("/api/admin/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    loadUsers(page);
   }
 
-  async function deleteUser(userId) {
-    if (!confirm("Are you sure to permanently delete this user?")) return;
-    setBusyId(userId);
-    try {
-      const res = await fetch("/api/admin/users/delete", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key": key,
-        },
-        body: JSON.stringify({ id: userId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setUsers(prev => prev.filter(u => u._id !== userId));
-      } else {
-        alert(data.error || "Delete failed");
-      }
-    } catch (err) {
-      alert("Delete failed: " + err.message);
-    } finally {
-      setBusyId(null);
-    }
-  }
+  /* ================= UI ================= */
 
   return (
-    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <h2 style={{ margin: 0 }}>Users</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={loadUsers} style={btnSecondary}>{loading ? "Refreshing..." : "Refresh"}</button>
-        </div>
+    <AdminLayout>
+      <h1 style={{ fontSize: 26, fontWeight: 900 }}>User Management</h1>
+
+      {/* TABS */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0" }}>
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              padding: "6px 14px",
+              borderRadius: 20,
+              border: "none",
+              fontWeight: 700,
+              cursor: "pointer",
+              background: tab === t.key ? "#1e3a8a" : "#e0e7ff",
+              color: tab === t.key ? "#fff" : "#1e3a8a",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <div style={{ overflowX: "auto", background: "#fff", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-          <thead style={{ background: "#f8fafc" }}>
-            <tr>
-              <th style={th}>Name</th>
-              <th style={th}>Email</th>
-              <th style={th}>Phone</th>
-              <th style={th}>Status</th>
-              <th style={th}>Actions</th>
-            </tr>
-          </thead>
+      {/* SEARCH & FILTER */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <input
+          placeholder="Search name / email / phone"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
 
-          <tbody>
-            {loading && users.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 20, textAlign: "center" }}>Loading users…</td></tr>
-            )}
+        <select value={role} onChange={e => setRole(e.target.value)}>
+          <option value="">All Roles</option>
+          {ROLES.map(r => <option key={r}>{r}</option>)}
+        </select>
 
-            {!loading && users.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 20, textAlign: "center" }}>No users found.</td></tr>
-            )}
+        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
 
-            {users.map(user => (
-              <tr key={user._id} style={{ borderBottom: "1px solid #eef2f6" }}>
-                <td style={td}>{user.name || "-"}</td>
-                <td style={td}>{user.email || "-"}</td>
-                <td style={td}>{user.phone || "-"}</td>
-                <td style={td}>{user.status || "active"}</td>
-                <td style={td}>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      disabled={busyId === user._id}
-                      onClick={() => updateStatus(user._id, user.status === "blocked" ? "active" : "blocked")}
-                      style={btnSmall}
-                    >
-                      {busyId === user._id ? "…" : (user.status === "blocked" ? "Activate" : "Block")}
-                    </button>
+        <button onClick={() => loadUsers(1)}>Search</button>
 
-                    <button
-                      disabled={busyId === user._id}
-                      onClick={() => deleteUser(user._id)}
-                      style={btnDanger}
-                    >
-                      {busyId === user._id ? "…" : "Delete"}
-                    </button>
-                  </div>
-                </td>
+        <button
+          onClick={() => {
+            const qs = new URLSearchParams({
+              q: search,
+              role,
+              from: fromDate,
+              to: toDate,
+            });
+            window.location.href = "/api/admin/users/export?" + qs.toString();
+          }}
+        >
+          Export CSV
+        </button>
+      </div>
+
+      {/* TABLE */}
+      <div style={{ background: "#fff", padding: 12, borderRadius: 12 }}>
+        {loading && <p>Loading…</p>}
+
+        {!loading && (
+          <table width="100%" border="1" cellPadding="8">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Role</th>
+                <th>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center" }}>
+                    No users found
+                  </td>
+                </tr>
+              )}
+
+              {users.map(u => (
+                <tr key={u._id}>
+                  <td>
+                    {editId === u._id ? (
+                      <input
+                        value={u.name || ""}
+                        onChange={e =>
+                          setUsers(users.map(x =>
+                            x._id === u._id ? { ...x, name: e.target.value } : x
+                          ))
+                        }
+                      />
+                    ) : (u.name || u.email?.split("@")[0])}
+                  </td>
+
+                  <td>{u.email}</td>
+
+                  <td>
+                    {editId === u._id ? (
+                      <input
+                        value={u.mobile || ""}
+                        onChange={e =>
+                          setUsers(users.map(x =>
+                            x._id === u._id ? { ...x, mobile: e.target.value } : x
+                          ))
+                        }
+                      />
+                    ) : (u.mobile || "-")}
+                  </td>
+
+                  <td>
+                    {editId === u._id ? (
+                      <select
+                        value={u.role}
+                        onChange={e =>
+                          setUsers(users.map(x =>
+                            x._id === u._id ? { ...x, role: e.target.value } : x
+                          ))
+                        }
+                      >
+                        {ROLES.map(r => <option key={r}>{r}</option>)}
+                      </select>
+                    ) : u.role}
+                  </td>
+
+                  <td>
+                    {editId === u._id ? (
+                      <>
+                        <button onClick={() => saveUser(u)}>Save</button>
+                        <button onClick={() => setEditId(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => setEditId(u._id)}>Edit</button>
+                        <button onClick={() => deleteUser(u._id)}>Delete</button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
-    </div>
+
+      {/* PAGINATION */}
+      <div style={{ marginTop: 12 }}>
+        <button disabled={page <= 1} onClick={() => loadUsers(page - 1)}>
+          Prev
+        </button>
+        <span style={{ margin: "0 10px" }}>
+          Page {page} / {totalPages}
+        </span>
+        <button disabled={page >= totalPages} onClick={() => loadUsers(page + 1)}>
+          Next
+        </button>
+      </div>
+    </AdminLayout>
   );
 }
-
-/* wrap with AdminGuard */
-export default function UsersWithGuard(props) {
-  return (
-    <AdminGuard>
-      <AdminUsersPage {...props} />
-    </AdminGuard>
-  );
-}
-
-/* Styles (inline) */
-const th = { textAlign: "left", padding: "12px 14px", fontSize: 13, color: "#374151" };
-const td = { padding: "12px 14px", fontSize: 14, color: "#111827" };
-
-const btnSecondary = { padding: "8px 12px", background: "#f3f4f6", color: "#111827", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer" };
-const btnSmall = { padding: "6px 10px", background: "#11294a", color: "#fff", borderRadius: 6, border: "none", cursor: "pointer" };
-const btnDanger = { padding: "6px 10px", background: "#ef4444", color: "#fff", borderRadius: 6, border: "none", cursor: "pointer" };

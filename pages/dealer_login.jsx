@@ -1,53 +1,31 @@
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 
 export default function DealerLogin() {
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "#eef2ff",
-      }}
-    >
-      <div
-        style={{
-          width: 360,
-          background: "#fff",
-          padding: 30,
-          borderRadius: 14,
-          boxShadow: "0 6px 25px rgba(0,0,0,0.08)",
-          textAlign: "center",
-        }}
-      >
-        <h2 style={{ marginBottom: 20, fontWeight: 900 }}>
-          Dealer Login
-        </h2>
+  const { status } = useSession();
 
-        {/* ✅ DEALER GOOGLE LOGIN – CORRECT */}
-        <button
-          onClick={() =>
-            signIn("google", {
-              callbackUrl: "/dealer/dashboard",
-            })
-          }
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            padding: "12px",
-            width: "100%",
-            border: "1px solid #d0d7ff",
-            borderRadius: 8,
-            fontWeight: 700,
-            background: "#fff",
-            cursor: "pointer",
-          }}
-        >
+  if (status === "loading") return null;
+
+  const dealerGoogleLogin = () => {
+    // 🔑 DEALER INTENT SAVE (MISSING PIECE)
+    localStorage.setItem("dealer_intent", "1");
+
+    signIn("google", {
+      callbackUrl: "/auth/redirect",
+    });
+  };
+
+  return (
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ width:360, background:"#fff", padding:30, borderRadius:14 }}>
+        <h2>Dealer Login</h2>
+
+        <button onClick={dealerGoogleLogin}>
           Continue with Google
         </button>
+
+        <div style={{ marginTop:16 }}>
+          <a href="/">Back to Home</a>
+        </div>
       </div>
     </div>
   );

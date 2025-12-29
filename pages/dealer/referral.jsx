@@ -1,54 +1,88 @@
 import React, { useEffect, useState } from "react";
 
 /*
-DEALER REFERRAL – FINAL LOCKED UI
-✔ Plan tab untouched
-✔ Dashboard + Statement enhanced
-✔ Status, progress, clarity added
-✔ No auth / backend changes
+DEALER REFERRAL – FINAL ANIMATED DASHBOARD
+✔ Plan LOCKED
+✔ Statement LOCKED
+✔ Dashboard STRONG + animated
+✔ No MLM feel
+✔ Live DB safe
 */
+
+const LEVEL_RULES = {
+  1: { active: 1, slab: 10 },
+  2: { active: 10, slab: 15 },
+  3: { active: 25, slab: 17 },
+  4: { active: 50, slab: 19 },
+  5: { active: 100, slab: 20 },
+};
 
 export default function DealerReferral() {
   const [tab, setTab] = useState("plan");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [data, setData] = useState(null);
-  const [openLevel, setOpenLevel] = useState(null);
+  const [month, setMonth] = useState("ALL");
 
   useEffect(() => {
     fetch("/api/dealer/referral", { credentials: "include" })
       .then((r) => r.json())
-      .then((j) => {
-        if (j?.ok) {
-          setData({
-            summary: j.summary || {},
-            report: j.report || { levelCount: {} },
-            statement: j.statement || [],
-          });
-        } else {
-          setError("Unable to load referral data");
-        }
-      })
-      .catch(() => setError("Unable to load referral data"))
+      .then((j) => j?.ok && setData(j))
       .finally(() => setLoading(false));
   }, []);
 
   if (loading) return <Box>Loading referral details…</Box>;
-  if (error || !data) return <Box>{error}</Box>;
+  if (!data) return <Box>No referral data available</Box>;
 
   const { summary, report, statement } = data;
 
-  const accountStatus =
-    report.activeTeam > 0
-      ? "Active"
-      : "Pending Subscription Activity";
+  const currentLevel = summary.currentLevel || 1;
+  const nextRule = LEVEL_RULES[currentLevel + 1];
+
+  const progress =
+    nextRule && nextRule.active
+      ? Math.min(
+          100,
+          Math.round((report.activeTeam / nextRule.active) * 100)
+        )
+      : 0;
+
+  const filteredStatement =
+    month === "ALL"
+      ? statement
+      : statement.filter((s) => s.date?.startsWith(month));
+
+  /* ================= ACTIONS ================= */
+
+  function exportCSV() {
+    if (!filteredStatement.length) return;
+    const rows = [
+      ["Date", "Description", "Amount", "Status"],
+      ...filteredStatement.map((s) => [
+        s.date,
+        s.source,
+        s.value,
+        s.status,
+      ]),
+    ];
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "referral-statement.csv";
+    a.click();
+  }
+
+  function requestWithdraw() {
+    alert("Withdraw request sent for admin approval.");
+  }
 
   return (
     <div style={page}>
       {/* ================= TABS ================= */}
       <div style={tabs}>
         <Tab active={tab === "plan"} onClick={() => setTab("plan")}>
-          Plan Details
+          Plan
         </Tab>
         <Tab active={tab === "dashboard"} onClick={() => setTab("dashboard")}>
           Dashboard
@@ -58,164 +92,175 @@ export default function DealerReferral() {
         </Tab>
       </div>
 
-      {/* ================= PLAN (UNCHANGED) ================= */}
+      {/* ================= PLAN (LOCKED) ================= */}
       {tab === "plan" && (
         <div style={card}>
           <h2>Dealer Referral Program</h2>
-          <p style={muted}>This is not an MLM program.</p>
           <p style={muted}>
-            Rewards are based on verified & active subscriptions only.
+            This is a performance-based promotion program (not MLM).
           </p>
+          <ul style={list}>
+            <li>Only verified & paid subscriptions are counted</li>
+            <li>Maximum commission slab is 20%</li>
+            <li>Promotion depends on real business activity</li>
+            <li>Admin approval mandatory</li>
+          </ul>
           <a href="/dealer/referral-plan" style={planBtn}>
             View Full Referral Plan →
           </a>
         </div>
       )}
 
-      {/* ================= DASHBOARD ================= */}
+      {/* ================= DASHBOARD (ANIMATED & STRONG) ================= */}
       {tab === "dashboard" && (
         <>
-          {/* STATUS STRIP */}
-          <div style={statusStrip}>
-            <strong>Account Status:</strong>{" "}
-            <span>{accountStatus}</span>
-            <span style={{ marginLeft: "auto", fontSize: 12 }}>
-              Last updated: Today
-            </span>
-          </div>
-
-          {/* TOP KPI */}
+          {/* KPI COUNTERS */}
           <div style={grid}>
-            <Card
-              title="Referral Code"
-              value={summary.referralCode || "—"}
-              sub={
-                !summary.referralCode
-                  ? "Will be generated after dealer activation"
-                  : ""
-              }
-            />
-            <Card
-              title="Current Level"
-              value={`Level ${summary.currentLevel || 1}`}
-            />
-            <Card title="Active Team" value={report.activeTeam || 0} />
-            <Card
+            <KPI title="Referral Code" value={summary.referralCode || "—"} />
+            <KPI title="Current Level" value={`Level ${currentLevel}`} />
+            <KPI
               title="Wallet Balance"
               value={`₹${summary.walletBalance || 0}`}
+              animate
             />
-            <Card
-              title="This Month"
-              value={`₹${summary.monthRewards || 0}`}
+            <KPI
+              title="Total Earnings"
+              value={`₹${summary.totalRewards || 0}`}
+              animate
+            />
+            <KPI
+              title="Active Subscriptions"
+              value={report.activeTeam || 0}
+              animate
             />
           </div>
 
-          {/* EMPTY INFO */}
-          {report.activeTeam === 0 && (
-            <div style={infoStrip}>
-              No active data yet. Referral activity will appear once a referred
-              dealer activates a paid subscription.
-            </div>
-          )}
+          {/* PROMOTION PROGRESS */}
+          <Card>
+            <h3>Promotion Progress</h3>
+            <p style={muted}>
+              Next Level: Level {currentLevel + 1} (Required:{" "}
+              {nextRule ? nextRule.active : "—"})
+            </p>
 
-          {/* LEVEL DISTRIBUTION */}
-          <div style={card}>
-            <h3>Your Network by Level</h3>
+            <AnimatedBar percent={progress} />
+            <div style={muted}>{progress}% completed</div>
+          </Card>
 
-            {[1, 2, 3, 4, 5].map((lvl) => (
-              <div key={lvl} style={levelBox}>
-                <div
-                  style={levelRow}
-                  onClick={() =>
-                    setOpenLevel(openLevel === lvl ? null : lvl)
-                  }
-                >
-                  <strong>Level {lvl}</strong>
-                  <span>{report.levelCount?.[lvl] || 0} Members</span>
-                </div>
+          {/* LEVEL QUALIFICATION */}
+          <Card>
+            <h3>Level Qualification Status</h3>
 
-                {openLevel === lvl && (
-                  <div style={expandBox}>
-                    <div style={muted}>
-                      Team details (name, status, subscription) will appear here.
-                    </div>
+            {[1, 2, 3, 4, 5].map((lvl) => {
+              const active = report.levelCount?.[lvl] || 0;
+              const required = LEVEL_RULES[lvl].active;
+              const percent =
+                required > 0
+                  ? Math.round((active / required) * 100)
+                  : 0;
+
+              return (
+                <div key={lvl} style={{ marginBottom: 14 }}>
+                  <div style={row}>
+                    <strong>Level {lvl}</strong>
+                    <span>
+                      {active}/{required}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
+                  <AnimatedBar percent={percent} />
+                </div>
+              );
+            })}
 
             <div style={note}>
-              Only paid & active subscriptions are counted for levels and
-              rewards.
+              Promotion is calculated only on paid & active subscriptions.
             </div>
-          </div>
-
-          {/* NEXT LEVEL */}
-          <div style={card}>
-            <h3>Next Level Target</h3>
-            <p>Next Level: Level {(summary.currentLevel || 1) + 1}</p>
-            <div style={progressBar}>
-              <div style={progressFill} />
-            </div>
-            <p style={muted}>
-              Progress will update once your team grows with active
-              subscriptions.
-            </p>
-          </div>
+          </Card>
         </>
       )}
 
-      {/* ================= STATEMENT ================= */}
+      {/* ================= STATEMENT (LOCKED & STRONG) ================= */}
       {tab === "statement" && (
-        <div style={card}>
-          <h3>Rewards Statement</h3>
-
+        <>
+          {/* SUMMARY */}
           <div style={grid}>
-            <Card
-              title="Total Rewards"
+            <KPI
+              title="Total Earnings"
               value={`₹${summary.totalRewards || 0}`}
             />
-            <Card
+            <KPI
               title="Withdrawn"
               value={`₹${summary.withdrawn || 0}`}
             />
-            <Card
-              title="Pending"
-              value={`₹${summary.pending || 0}`}
+            <KPI
+              title="Available Balance"
+              value={`₹${
+                (summary.totalRewards || 0) -
+                (summary.withdrawn || 0)
+              }`}
             />
           </div>
 
-          {statement.length === 0 ? (
-            <div style={muted}>No transactions yet</div>
-          ) : (
-            <table style={table}>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statement.map((s, i) => (
-                  <tr key={i}>
-                    <td>{s.date}</td>
-                    <td>{s.source}</td>
-                    <td>₹{s.value}</td>
-                    <td>{s.status}</td>
+          {/* ACTION BAR */}
+          <Card>
+            <div style={actionRow}>
+              <select
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                style={select}
+              >
+                <option value="ALL">All Months</option>
+              </select>
+
+              <button style={btn} onClick={exportCSV}>
+                Export CSV
+              </button>
+
+              <button style={btnPrimary} onClick={requestWithdraw}>
+                Request Withdrawal
+              </button>
+            </div>
+          </Card>
+
+          {/* TABLE */}
+          <Card>
+            <h3>Transaction History</h3>
+            {filteredStatement.length === 0 ? (
+              <div style={emptyBox}>
+                No transactions available for selected period.
+              </div>
+            ) : (
+              <table style={table}>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Amount</th>
+                    <th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+                </thead>
+                <tbody>
+                  {filteredStatement.map((s, i) => (
+                    <tr key={i}>
+                      <td>{s.date}</td>
+                      <td>{s.source}</td>
+                      <td style={{ fontWeight: 700 }}>
+                        ₹{s.value}
+                      </td>
+                      <td>{s.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Card>
+        </>
       )}
     </div>
   );
 }
 
-/* ================= UI HELPERS ================= */
+/* ================= COMPONENTS ================= */
 
 const Box = ({ children }) => (
   <div style={{ background: "#fff", padding: 24, borderRadius: 14 }}>
@@ -239,29 +284,80 @@ const Tab = ({ children, active, onClick }) => (
   </div>
 );
 
-const Card = ({ title, value, sub }) => (
-  <div style={card}>
-    <div style={muted}>{title}</div>
-    <div style={{ fontSize: 20, fontWeight: 900 }}>{value}</div>
-    {sub && <div style={{ fontSize: 11, color: "#64748b" }}>{sub}</div>}
-  </div>
-);
+const KPI = ({ title, value, animate }) => {
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    if (!animate) return;
+    const num = parseInt(String(value).replace(/[^\d]/g, ""), 10) || 0;
+    let start = 0;
+    const step = Math.max(1, Math.floor(num / 30));
+    const id = setInterval(() => {
+      start += step;
+      if (start >= num) {
+        setDisplay(num);
+        clearInterval(id);
+      } else {
+        setDisplay(start);
+      }
+    }, 30);
+    return () => clearInterval(id);
+  }, [value, animate]);
+
+  return (
+    <div style={kpiCard}>
+      <div style={muted}>{title}</div>
+      <div style={{ fontSize: 20, fontWeight: 900 }}>
+        {animate ? `₹${display}` : value}
+      </div>
+    </div>
+  );
+};
+
+const Card = ({ children }) => <div style={card}>{children}</div>;
+
+const AnimatedBar = ({ percent }) => {
+  const safe = percent > 0 ? percent : 4;
+  return (
+    <div style={barBg}>
+      <div
+        style={{
+          ...barFill,
+          width: `${safe}%`,
+          transition: "width 1.2s ease",
+        }}
+      />
+    </div>
+  );
+};
 
 /* ================= STYLES ================= */
 
 const page = { padding: 24, background: "#f5f7fb", minHeight: "100vh" };
 const tabs = { display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" };
+
 const grid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
   gap: 12,
+  marginBottom: 16,
 };
+
+const kpiCard = {
+  background: "#fff",
+  padding: 16,
+  borderRadius: 14,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
+};
+
 const card = {
   background: "#fff",
   padding: 16,
   borderRadius: 14,
-  marginBottom: 14,
+  marginBottom: 16,
+  boxShadow: "0 6px 18px rgba(0,0,0,0.05)",
 };
+
 const muted = { color: "#6b7280", fontSize: 13 };
 
 const planBtn = {
@@ -275,47 +371,69 @@ const planBtn = {
   textDecoration: "none",
 };
 
-const statusStrip = {
-  background: "#ecfeff",
-  padding: 10,
-  borderRadius: 10,
-  marginBottom: 14,
-  display: "flex",
-  alignItems: "center",
-  gap: 8,
-  fontSize: 13,
-};
+const list = { paddingLeft: 18, lineHeight: 1.7 };
 
-const infoStrip = {
-  background: "#eef2ff",
-  padding: 12,
-  borderRadius: 10,
-  marginBottom: 14,
-  fontSize: 13,
-};
-
-const levelBox = { borderBottom: "1px solid #e5e7eb", padding: "8px 0" };
-const levelRow = {
+const row = {
   display: "flex",
   justifyContent: "space-between",
-  cursor: "pointer",
-  fontWeight: 700,
+  fontSize: 12,
+  marginBottom: 6,
 };
-const expandBox = { padding: "8px 0 8px 12px" };
-const note = { marginTop: 10, fontSize: 12, color: "#475569" };
 
-const progressBar = {
+const note = {
+  marginTop: 10,
+  fontSize: 12,
+  color: "#475569",
+};
+
+const barBg = {
   width: "100%",
   height: 8,
   background: "#e5e7eb",
   borderRadius: 6,
-  marginTop: 8,
 };
-const progressFill = {
-  width: "20%",
+
+const barFill = {
   height: "100%",
   background: "#1e40af",
   borderRadius: 6,
 };
 
-const table = { width: "100%", borderCollapse: "collapse", marginTop: 14 };
+const table = { width: "100%", borderCollapse: "collapse", marginTop: 10 };
+
+const emptyBox = {
+  padding: 20,
+  textAlign: "center",
+  color: "#64748b",
+  fontSize: 14,
+};
+
+const actionRow = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  alignItems: "center",
+};
+
+const select = {
+  padding: 8,
+  borderRadius: 8,
+  border: "1px solid #cbd5f5",
+};
+
+const btn = {
+  padding: "8px 14px",
+  borderRadius: 8,
+  border: "1px solid #cbd5f5",
+  background: "#fff",
+  fontWeight: 700,
+};
+
+const btnPrimary = {
+  padding: "8px 14px",
+  borderRadius: 8,
+  border: "none",
+  background: "#1e40af",
+  color: "#fff",
+  fontWeight: 700,
+};

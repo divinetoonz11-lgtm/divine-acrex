@@ -1,132 +1,206 @@
-// pages/admin/overview.jsx
-import { useEffect, useState } from "react";
-import AdminGuard from "../../components/AdminGuard";
+import { useState } from "react";
+import AdminLayout from "../../components/admin/AdminLayout";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
-function AdminOverview() {
-  const [stats, setStats] = useState({
-    users: 0,
-    dealers: 0,
-    properties: 0,
-    leads: 0,
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+/* ================= DUMMY DATA (LIVE READY) ================= */
+const MONTHS = ["Jan", "Feb", "Mar"];
 
-  useEffect(() => {
-    loadOverview();
-  }, []);
+const STATS = {
+  Jan: { users: 420, dealers: 40, revenue: 820000, listings: 220, subs: 40, active: 380, pending: 60, blocked: 12, enquiries: 190 },
+  Feb: { users: 510, dealers: 55, revenue: 910000, listings: 300, subs: 50, active: 460, pending: 72, blocked: 14, enquiries: 240 },
+  Mar: { users: 640, dealers: 70, revenue: 980000, listings: 320, subs: 60, active: 590, pending: 84, blocked: 18, enquiries: 310 },
+};
 
-  async function loadOverview() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/overview", {
-        headers: { "x-admin-key": process.env.NEXT_PUBLIC_ADMIN_KEY },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data?.error || "Failed to load overview");
-      } else {
-        const s = data.stats || {};
-        setStats({
-          users: s.users ?? 0,
-          dealers: s.dealers ?? 0,
-          properties: s.properties ?? 0,
-          leads: s.leads ?? 0,
-        });
-      }
-    } catch (err) {
-      setError("Network error: " + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+const GRAPHS = {
+  revenue: [
+    { month: "Jan", value: 820000 },
+    { month: "Feb", value: 910000 },
+    { month: "Mar", value: 980000 },
+  ],
+  usersDealers: [
+    { month: "Jan", users: 420, dealers: 40 },
+    { month: "Feb", users: 510, dealers: 55 },
+    { month: "Mar", users: 640, dealers: 70 },
+  ],
+  subscriptions: [
+    { month: "Jan", total: 320, new: 40 },
+    { month: "Feb", total: 370, new: 50 },
+    { month: "Mar", total: 430, new: 60 },
+  ],
+  listings: [
+    { month: "Jan", total: 4800, new: 220 },
+    { month: "Feb", total: 5100, new: 300 },
+    { month: "Mar", total: 5420, new: 320 },
+  ],
+};
 
-  const cards = [
-    { key: "users", label: "Users", value: stats.users, hint: "Total registered users" },
-    { key: "dealers", label: "Dealers", value: stats.dealers, hint: "Approved dealers" },
-    { key: "properties", label: "Properties", value: stats.properties, hint: "Total listings" },
-    { key: "leads", label: "Leads", value: stats.leads, hint: "Enquiries received" },
-  ];
+/* ================= PAGE ================= */
+export default function AdminOverview() {
+  const [month, setMonth] = useState("Mar");
+  const [active, setActive] = useState(null);
+
+  const s = STATS[month];
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-        <h2>Admin Overview</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={loadOverview} style={btnSecondary}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
+    <AdminLayout>
+      <div style={page}>
+        {/* HEADER */}
+        <div style={top}>
+          <h2>Admin Overview</h2>
+          <select value={month} onChange={(e) => setMonth(e.target.value)} style={select}>
+            {MONTHS.map((m) => <option key={m}>{m}</option>)}
+          </select>
         </div>
-      </div>
 
-      {error && (
-        <div style={{ marginBottom: 12, color: "#7b0b0b", background: "#fee", padding: 10, borderRadius: 6 }}>
-          {error}
+        {/* KPI GRID – 9 ITEMS */}
+        <div style={kpiGrid}>
+          <KPI title="Total Users" value={s.users} color="#2563eb" active={active==="users"} onClick={()=>setActive("users")} />
+          <KPI title="Active Users" value={s.active} color="#16a34a" active={active==="active"} onClick={()=>setActive("active")} />
+          <KPI title="Dealers" value={s.dealers} color="#9333ea" active={active==="dealers"} onClick={()=>setActive("dealers")} />
+          <KPI title="Revenue" value={`₹ ${s.revenue.toLocaleString("en-IN")}`} color="#f97316" active={active==="revenue"} onClick={()=>setActive("revenue")} />
+          <KPI title="Subscriptions" value={s.subs} color="#0d9488" active={active==="subs"} onClick={()=>setActive("subs")} />
+          <KPI title="Listings" value={s.listings} color="#1d4ed8" active={active==="listings"} onClick={()=>setActive("listings")} />
+          <KPI title="Pending" value={s.pending} color="#ca8a04" active={active==="pending"} onClick={()=>setActive("pending")} />
+          <KPI title="Blocked" value={s.blocked} color="#dc2626" active={active==="blocked"} onClick={()=>setActive("blocked")} />
+          <KPI title="Enquiries" value={s.enquiries} color="#7c3aed" active={active==="enquiries"} onClick={()=>setActive("enquiries")} />
         </div>
-      )}
 
-      <div style={grid}>
-        {cards.map((c) => (
-          <div key={c.key} style={card}>
-            <div style={{ fontSize: 14, color: "#6b7280" }}>{c.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, marginTop: 6 }}>{loading ? "..." : c.value}</div>
-            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 8 }}>{c.hint}</div>
+        {/* DRILL INFO */}
+        {active && (
+          <div style={drill}>
+            Showing <b>{active.toUpperCase()}</b> analytics for <b>{month}</b>
           </div>
-        ))}
-      </div>
+        )}
 
-      <div style={{ marginTop: 18 }}>
-        <h4 style={{ marginBottom: 8 }}>Quick actions</h4>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button style={btnPrimary} onClick={() => window.location.href = "/admin/users"}>Manage Users</button>
-          <button style={btnPrimary} onClick={() => window.location.href = "/admin/dealers"}>Manage Dealers</button>
-          <button style={btnPrimary} onClick={() => window.location.href = "/admin/properties"}>Manage Properties</button>
-          <button style={btnPrimary} onClick={() => window.location.href = "/admin/filters"}>Filters</button>
+        {/* GRAPHS */}
+        <div style={grid}>
+          <Panel title="Revenue Trend (₹)">
+            <AreaChartBox data={GRAPHS.revenue} color="#f97316" />
+          </Panel>
+
+          <Panel title="Users vs Dealers">
+            <BarChartBox data={GRAPHS.usersDealers} a="users" b="dealers" ca="#2563eb" cb="#9333ea" />
+          </Panel>
+
+          <Panel title="Subscriptions Growth">
+            <BarChartBox data={GRAPHS.subscriptions} a="total" b="new" ca="#0d9488" cb="#22c55e" />
+          </Panel>
+
+          <Panel title="Listings Growth">
+            <BarChartBox data={GRAPHS.listings} a="total" b="new" ca="#1d4ed8" cb="#38bdf8" />
+          </Panel>
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }
 
-/* wrapping the whole page in AdminGuard */
-export default function OverviewWithGuard(props) {
-  return (
-    <AdminGuard>
-      <AdminOverview {...props} />
-    </AdminGuard>
-  );
-}
+/* ================= COMPONENTS ================= */
 
-/* styles */
+const KPI = ({ title, value, color, active, onClick }) => (
+  <div
+    onClick={onClick}
+    style={{
+      ...kpi,
+      borderColor: active ? color : "transparent",
+      background: active ? `${color}10` : "#fff",
+    }}
+  >
+    <div style={{ fontSize: 13, color }}>{title}</div>
+    <div style={{ fontSize: 26, fontWeight: 900 }}>{value}</div>
+  </div>
+);
+
+const Panel = ({ title, children }) => (
+  <div style={panel}>
+    <h3 style={{ marginBottom: 10 }}>{title}</h3>
+    {children}
+  </div>
+);
+
+const AreaChartBox = ({ data, color }) => (
+  <ResponsiveContainer width="100%" height={230}>
+    <AreaChart data={data}>
+      <XAxis dataKey="month" />
+      <YAxis />
+      <Tooltip />
+      <Area dataKey="value" stroke={color} fill={`${color}33`} />
+    </AreaChart>
+  </ResponsiveContainer>
+);
+
+const BarChartBox = ({ data, a, b, ca, cb }) => (
+  <ResponsiveContainer width="100%" height={230}>
+    <BarChart data={data}>
+      <XAxis dataKey="month" />
+      <YAxis />
+      <Tooltip />
+      <Legend />
+      <Bar dataKey={a} fill={ca} />
+      <Bar dataKey={b} fill={cb} />
+    </BarChart>
+  </ResponsiveContainer>
+);
+
+/* ================= STYLES ================= */
+
+const page = { padding: 28, background: "#f8fafc" };
+
+const top = {
+  display: "flex",
+  justifyContent: "space-between",
+  marginBottom: 20,
+};
+
+const select = {
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "1px solid #cbd5e1",
+};
+
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+  gap: 16,
+  marginBottom: 20,
+};
+
+const kpi = {
+  padding: 18,
+  borderRadius: 14,
+  border: "2px solid transparent",
+  boxShadow: "0 8px 22px rgba(15,23,42,.08)",
+  cursor: "pointer",
+  transition: "all .2s ease",
+};
+
+const drill = {
+  padding: 14,
+  marginBottom: 20,
+  background: "#eef2ff",
+  borderRadius: 10,
+  fontSize: 14,
+};
+
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-  gap: 12,
+  gridTemplateColumns: "repeat(auto-fit,minmax(420px,1fr))",
+  gap: 20,
 };
 
-const card = {
+const panel = {
   background: "#fff",
-  padding: 16,
-  borderRadius: 8,
-  boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-  minHeight: 100,
-};
-
-const btnPrimary = {
-  padding: "8px 12px",
-  background: "#27457a",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-};
-
-const btnSecondary = {
-  padding: "8px 12px",
-  background: "#f3f4f6",
-  color: "#111827",
-  border: "1px solid #e5e7eb",
-  borderRadius: 6,
-  cursor: "pointer",
+  padding: 18,
+  borderRadius: 14,
+  boxShadow: "0 8px 24px rgba(15,23,42,.08)",
 };

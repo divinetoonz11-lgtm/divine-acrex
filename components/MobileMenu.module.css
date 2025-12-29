@@ -7,6 +7,7 @@
   justify-content: flex-end;
 }
 
+/* ===== Sidebar ===== */
 .menu {
   width: 85%;
   max-width: 320px;
@@ -16,11 +17,13 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
 }
 
+/* ===== Links & Buttons ===== */
 .menu a,
 .menu button {
-  color: #fff;
+  color: #ffffff;
   font-size: 16px;
   font-weight: 600;
   background: none;
@@ -37,19 +40,23 @@
   background: rgba(255,255,255,0.15);
 }
 
+/* ===== Close ===== */
 .close {
   align-self: flex-end;
   font-size: 20px;
   background: none;
   border: none;
-  color: #fff;
+  color: #ffffff;
+  cursor: pointer;
 }
 
+/* ===== Post Property Button ===== */
 .postBtn {
   margin-top: 10px;
   background: rgba(255,255,255,0.2);
   border-radius: 10px;
   padding: 12px;
+  color: #ffffff;
 }
 
 .postBtn span {
@@ -58,4 +65,20 @@
   border-radius: 999px;
   font-size: 11px;
   margin-left: 6px;
+}
+
+/* ===== Become a Dealer CTA ===== */
+.dealerCta {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  color: #ffffff !important;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+}
+
+.dealerCta:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
 }

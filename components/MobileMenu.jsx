@@ -9,11 +9,20 @@ export default function MobileMenu({ open, onClose, onPost }) {
       <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
         <button className={styles.close} onClick={onClose}>✕</button>
 
+        <Link href="/" onClick={onClose}>Home</Link>
         <Link href="/listings" onClick={onClose}>Listings</Link>
         <Link href="/for-buyers" onClick={onClose}>For Buyers</Link>
-        <Link href="/for-tenants" onClick={onClose}>For Tenants</Link>
         <Link href="/for-owners" onClick={onClose}>For Owners</Link>
-        <Link href="/for-dealers" onClick={onClose}>For Dealers</Link>
+
+        {/* ⭐ IMPORTANT CTA */}
+        <Link
+          href="/dealer/register"
+          onClick={onClose}
+          className={styles.dealerCta}
+        >
+          Become a Dealer
+        </Link>
+
         <Link href="/insights" onClick={onClose}>Insights</Link>
 
         <button className={styles.postBtn} onClick={onPost}>

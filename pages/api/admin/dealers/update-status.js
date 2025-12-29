@@ -4,30 +4,54 @@ import Dealer from "../../../../models/Dealer";
 import adminGuard from "../../../../utils/adminGuard";
 
 export default async function handler(req, res) {
-  // SECURITY: origin + adminKey + nextauth-session email
+  // 🔒 SECURITY: adminGuard (origin + adminKey + session)
   if (!(await adminGuard(req, res))) return;
 
   await dbConnect();
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Only POST allowed" });
+  // ✅ ALIGN WITH FRONTEND (PUT)
+  if (req.method !== "PUT") {
+    return res
+      .status(405)
+      .json({ success: false, message: "Only PUT allowed" });
   }
 
   try {
-    const { dealerId, status } = req.body;
-    if (!dealerId) return res.status(400).json({ success: false, message: "dealerId missing" });
-    if (typeof status === "undefined") return res.status(400).json({ success: false, message: "status missing" });
+    // ✅ ALIGN FIELD NAME WITH FRONTEND
+    const { id, status } = req.body;
 
-    const dealer = await Dealer.findById(dealerId);
-    if (!dealer) return res.status(404).json({ success: false, message: "Dealer not found" });
+    if (!id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "id missing" });
+    }
 
-    // update status (example: approved / rejected / blocked)
+    if (!status) {
+      return res
+        .status(400)
+        .json({ success: false, message: "status missing" });
+    }
+
+    const dealer = await Dealer.findById(id);
+    if (!dealer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Dealer not found" });
+    }
+
+    // ✅ UPDATE STATUS
     dealer.status = status;
     await dealer.save();
 
-    return res.status(200).json({ success: true, message: "Dealer status updated", dealer });
+    return res.status(200).json({
+      success: true,
+      message: "Dealer status updated",
+      dealer,
+    });
   } catch (err) {
     console.error("DEALER UPDATE STATUS ERROR:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Server error" });
   }
 }

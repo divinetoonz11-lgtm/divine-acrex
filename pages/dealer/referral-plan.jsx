@@ -1,57 +1,62 @@
 import React, { useState } from "react";
 
 /*
-REFERRAL & REWARDS PLAN – DEALER
-✔ Not MLM language
-✔ Level 1–5 benefits clearly explained
-✔ Deep details (2-page style)
-✔ Professional & trust-based UI
-✔ Linked from Dashboard / Referral page
+CHANNEL PARTNER PROMOTION PROGRAM
+✔ Qualification-based promotion (not MLM)
+✔ Max 20% commission slab
+✔ 5-level designation system
+✔ Active subscription based
+✔ Lifetime benefits at Level 5
+✔ No API dependency (UI only)
 */
 
-export default function ReferralPlan() {
+export default function PromotionProgram() {
   const [tab, setTab] = useState("overview");
 
   return (
     <div style={page}>
-      {/* HEADER */}
+      {/* ================= HEADER ================= */}
       <div style={hero}>
-        <h1>Referral & Rewards Program</h1>
+        <h1>Channel Partner Promotion Program</h1>
         <p>
-          Grow your business network with Divine Acres and unlock verified
-          rewards, visibility benefits, and long-term listing advantages.
+          Performance-based dealer promotion system with incremental benefits,
+          leadership recognition, and long-term rewards.
         </p>
       </div>
 
-      {/* TABS */}
+      {/* ================= TABS ================= */}
       <div style={tabs}>
         <Tab active={tab === "overview"} onClick={() => setTab("overview")}>
-          Program Overview
+          Overview
         </Tab>
         <Tab active={tab === "levels"} onClick={() => setTab("levels")}>
-          Level-wise Benefits
+          Promotion Levels
         </Tab>
-        <Tab active={tab === "details"} onClick={() => setTab("details")}>
-          Full Description
+        <Tab active={tab === "benefits"} onClick={() => setTab("benefits")}>
+          Benefits
+        </Tab>
+        <Tab active={tab === "home"} onClick={() => setTab("home")}>
+          Home Page Section
         </Tab>
       </div>
 
       {/* ================= OVERVIEW ================= */}
       {tab === "overview" && (
         <div style={card}>
-          <h2>How the Referral Program Works</h2>
+          <h2>How Promotion Works</h2>
           <ul style={list}>
-            <li>Dealers can invite other dealers using a unique referral code</li>
-            <li>Rewards are generated only from verified subscriptions</li>
-            <li>No property sale is required to participate</li>
-            <li>Growth is based on genuine dealer network expansion</li>
-            <li>All rewards are tracked transparently in your dashboard</li>
-            <li>Admin verification is mandatory for rewards approval</li>
+            <li>Dealers grow through direct referrals and team business</li>
+            <li>Only PAID & ACTIVE subscriptions are counted</li>
+            <li>Promotion is qualification-based, not position-based</li>
+            <li>Maximum commission payable by company is 20%</li>
+            <li>Direct referrals earn full eligible commission slab</li>
+            <li>Team referrals earn difference commission</li>
+            <li>Admin verification is mandatory</li>
           </ul>
 
           <div style={note}>
-            This program is designed to support dealer growth, not quick earning
-            schemes. Benefits are linked to real platform usage.
+            This is a professional growth and incentive program designed for
+            genuine dealers and real business expansion.
           </div>
         </div>
       )}
@@ -60,98 +65,85 @@ export default function ReferralPlan() {
       {tab === "levels" && (
         <>
           <Level
-            lvl="Level 1"
-            percent="Up to 20%"
-            title="Direct Partner Benefits"
-            points={[
-              "Highest reward percentage",
-              "Priority visibility in listings",
-              "Early access to buyer enquiries",
-              "Higher buyer phone number visibility",
-            ]}
+            title="Level 1 – Associate Channel Partner"
+            active="Minimum 1 Active Subscription"
+            slab="Up to 10% Commission"
           />
 
           <Level
-            lvl="Level 2"
-            percent="Up to 12%"
-            title="Team Growth Benefits"
-            points={[
-              "Rewards from extended network",
-              "Increased trust score",
-              "More listing exposure",
-            ]}
+            title="Level 2 – Authorized Channel Partner"
+            active="Minimum 10 Active Subscriptions"
+            slab="Up to 15% Commission"
           />
 
           <Level
-            lvl="Level 3"
-            percent="Up to 8%"
-            title="Network Stability Benefits"
-            points={[
-              "Consistent passive rewards",
-              "Access to premium buyer locations",
-              "Improved approval priority",
-            ]}
+            title="Level 3 – Senior Channel Partner"
+            active="Minimum 25 Active Subscriptions"
+            slab="Up to 17% Commission"
           />
 
           <Level
-            lvl="Level 4"
-            percent="Up to 5%"
-            title="Senior Dealer Benefits"
-            points={[
-              "Brand credibility boost",
-              "Featured dealer tag eligibility",
-              "Lower subscription renewal cost",
-            ]}
+            title="Level 4 – Principal Channel Partner"
+            active="Minimum 50 Active Subscriptions"
+            slab="Up to 19% Commission"
           />
 
           <Level
-            lvl="Level 5"
-            percent="Up to 3%"
-            title="Elite Dealer Benefits"
-            points={[
-              "Long-term listing advantages",
-              "Selected lifetime free listings (conditional)",
-              "Dedicated relationship support",
-            ]}
+            title="Level 5 – Elite Channel Partner"
+            active="Minimum 100 Active Subscriptions"
+            slab="Up to 20% Commission (MAX)"
+            highlight
           />
         </>
       )}
 
-      {/* ================= FULL DETAILS ================= */}
-      {tab === "details" && (
-        <div style={card}>
-          <h2>Detailed Terms & Eligibility</h2>
+      {/* ================= BENEFITS ================= */}
+      {tab === "benefits" && (
+        <>
+          <Benefit
+            title="Common Benefits (All Levels)"
+            points={[
+              "Referral dashboard access",
+              "Promotion tracking",
+              "Verified dealer badge",
+            ]}
+          />
 
+          <Benefit
+            title="Level 5 – Elite Channel Partner (Special)"
+            points={[
+              "Lifetime FREE Listings",
+              "10 Verified Buyer Contacts every month (extra)",
+              "Top 20 Dealer Rank – Free of Cost",
+              "Highest trust & visibility badge",
+              "Priority placement across platform",
+            ]}
+            highlight
+          />
+        </>
+      )}
+
+      {/* ================= HOME PAGE ================= */}
+      {tab === "home" && (
+        <div style={card}>
+          <h2>Home Page – Top Channel Partners Section</h2>
           <p>
-            The Referral & Rewards Program is structured to reward dealers who
-            contribute to the healthy growth of the Divine Acres ecosystem.
-            Rewards are calculated only on approved and paid subscriptions.
+            A dedicated section on the home page showcasing the most trusted and
+            high-performing dealers.
           </p>
 
-          <h3>Eligibility</h3>
-          <ul style={list}>
-            <li>Only verified dealers can participate</li>
-            <li>Rewards apply after subscription approval</li>
-            <li>Fake or inactive accounts are excluded</li>
-          </ul>
+          <div style={homeBox}>
+            <h3>Top Channel Partners</h3>
+            <p style={{ color: "#475569" }}>
+              Verified Elite Channel Partners with proven performance
+            </p>
 
-          <h3>Rewards & Withdrawal</h3>
-          <ul style={list}>
-            <li>Rewards appear in dashboard after admin approval</li>
-            <li>Withdrawals are allowed after minimum balance</li>
-            <li>Payment settlement follows platform billing cycle</li>
-          </ul>
-
-          <h3>Important Notes</h3>
-          <ul style={list}>
-            <li>Percentages may vary based on subscription plan</li>
-            <li>Benefits are subject to periodic review</li>
-            <li>Final authority remains with Divine Acres admin</li>
-          </ul>
-
-          <div style={note}>
-            For live earnings, statements, withdrawals and network tree, please
-            visit the Referral Dashboard section.
+            <ul style={list}>
+              <li>Top 5 Elite Channel Partners displayed</li>
+              <li>Rank badge (Top 1–5)</li>
+              <li>Free of cost visibility</li>
+              <li>Updated periodically based on activity</li>
+            </ul>
           </div>
         </div>
       )}
@@ -177,10 +169,17 @@ const Tab = ({ children, active, onClick }) => (
   </div>
 );
 
-const Level = ({ lvl, percent, title, points }) => (
-  <div style={card}>
-    <h3>{lvl} – {title}</h3>
-    <div style={badge}>Rewards: {percent}</div>
+const Level = ({ title, active, slab, highlight }) => (
+  <div style={{ ...card, border: highlight ? "2px solid #1e4ed8" : "none" }}>
+    <h3>{title}</h3>
+    <div style={badge}>{active}</div>
+    <p style={{ fontWeight: 700 }}>{slab}</p>
+  </div>
+);
+
+const Benefit = ({ title, points, highlight }) => (
+  <div style={{ ...card, border: highlight ? "2px solid #1e4ed8" : "none" }}>
+    <h3>{title}</h3>
     <ul style={list}>
       {points.map((p, i) => (
         <li key={i}>{p}</li>
@@ -242,4 +241,11 @@ const badge = {
   background: "#e0e7ff",
   color: "#1e3a8a",
   fontWeight: 700,
+};
+
+const homeBox = {
+  background: "#f8fafc",
+  padding: 18,
+  borderRadius: 14,
+  marginTop: 12,
 };

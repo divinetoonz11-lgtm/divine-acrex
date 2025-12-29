@@ -1,39 +1,48 @@
-// pages/api/admin/users/update-status.js
 import dbConnect from "../../../../utils/dbConnect";
 import User from "../../../../models/User";
+import adminGuard from "../../../../utils/adminGuard";
 
 export default async function handler(req, res) {
-  await dbConnect();
+  // 🔐 ADMIN CHECK (SERVER SAFE)
+  const ok = await adminGuard(req, res);
+  if (!ok) return;
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ success: false, message: "Only POST allowed" });
+  if (req.method !== "PUT") {
+    return res.status(405).json({
+      error: "Only PUT allowed",
+    });
   }
 
   try {
-    const { userId, active } = req.body;
+    await dbConnect();
 
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "User ID missing" });
+    const { id, status } = req.body || {};
+
+    if (!id || !status) {
+      return res.status(400).json({
+        error: "Missing user id or status",
+      });
     }
 
     const updated = await User.findByIdAndUpdate(
-      userId,
-      { active },
+      id,
+      { status },
       { new: true }
-    );
+    ).lean();
 
     if (!updated) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({
+        error: "User not found",
+      });
     }
 
     return res.status(200).json({
-      success: true,
-      message: `User is now ${active ? "ACTIVE" : "BLOCKED"}`,
       user: updated,
     });
-
   } catch (err) {
-    console.error("USER STATUS ERROR:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("ADMIN USER UPDATE STATUS ERROR:", err);
+    return res.status(500).json({
+      error: "Server error",
+    });
   }
 }

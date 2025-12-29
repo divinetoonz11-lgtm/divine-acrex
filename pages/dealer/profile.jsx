@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 
 /*
-DEALER PROFILE – FINAL
-✔ Google login → auto name/email
-✔ Phone login → auto mobile
+DEALER PROFILE – FINAL (API CONNECTED)
+✔ Admin-approved profile auto-fill
+✔ Editable fields only
 ✔ Mobile mandatory
-✔ Business + PAN + GST + Address
+✔ GET + POST API integrated
 */
 
 export default function DealerProfile() {
@@ -19,44 +19,73 @@ export default function DealerProfile() {
     gst: "",
   });
 
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  // 🔹 AUTO-FILL FROM SESSION (mock for now)
+  /* ================= LOAD PROFILE ================= */
   useEffect(() => {
-    /*
-      👉 Yahan future me session se data aayega:
-      session.user.name
-      session.user.email
-      session.user.phone
-    */
-
-    setForm((f) => ({
-      ...f,
-      name: "Auto Name (Google)",
-      email: "auto@email.com",
-      mobile: "9876543210", // phone login se
-    }));
+    fetch("/api/dealer/profile")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.ok && j.profile) {
+          setForm({
+            name: j.profile.name || "",
+            email: j.profile.email || "",
+            mobile: j.profile.mobile || "",
+            businessName: j.profile.businessName || "",
+            address: j.profile.address || "",
+            pan: j.profile.pan || "",
+            gst: j.profile.gst || "",
+          });
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Unable to load profile");
+        setLoading(false);
+      });
   }, []);
 
   const onChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const onSubmit = () => {
+  /* ================= SAVE PROFILE ================= */
+  const onSubmit = async () => {
+    setError("");
+    setSuccess("");
+
     if (!form.mobile || form.mobile.length < 10) {
       setError("Mobile number is mandatory");
       return;
     }
 
-    setError("");
-    alert("Profile data ready to save (API connect next)");
+    const res = await fetch("/api/dealer/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    const json = await res.json();
+
+    if (!json.ok) {
+      setError(json.message || "Failed to save profile");
+      return;
+    }
+
+    setSuccess("Profile updated successfully");
   };
+
+  if (loading) {
+    return <div style={box}>Loading profile…</div>;
+  }
 
   return (
     <div style={box}>
       <h2 style={title}>Dealer Profile</h2>
 
-      {/* BASIC (AUTO) */}
+      {/* BASIC (READ-ONLY) */}
       <div style={section}>Basic Details</div>
 
       <input style={inpDisabled} value={form.name} disabled />
@@ -113,6 +142,7 @@ export default function DealerProfile() {
       />
 
       {error && <div style={errorBox}>{error}</div>}
+      {success && <div style={successBox}>{success}</div>}
 
       <button style={btn} onClick={onSubmit}>
         Save Profile
@@ -121,7 +151,7 @@ export default function DealerProfile() {
   );
 }
 
-/* ================= STYLES ================= */
+/* ================= STYLES (UNCHANGED) ================= */
 
 const box = {
   maxWidth: 520,
@@ -172,6 +202,14 @@ const btn = {
 const errorBox = {
   background: "#fee2e2",
   color: "#991b1b",
+  padding: 10,
+  borderRadius: 8,
+  marginBottom: 10,
+};
+
+const successBox = {
+  background: "#dcfce7",
+  color: "#166534",
   padding: 10,
   borderRadius: 8,
   marginBottom: 10,

@@ -1,40 +1,72 @@
 import dynamic from "next/dynamic";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
+
+/* ================= LOCATION DATA ================= */
+const LOCATION = {
+  India: {
+    code: "+91",
+    states: {
+      Delhi: ["New Delhi"],
+      Maharashtra: ["Mumbai", "Pune", "Nagpur"],
+      "Uttar Pradesh": ["Noida", "Lucknow", "Kanpur"],
+      Rajasthan: ["Jaipur", "Udaipur"],
+      Karnataka: ["Bengaluru", "Mysuru"],
+      "Tamil Nadu": ["Chennai", "Coimbatore"],
+      Gujarat: ["Ahmedabad", "Surat"],
+      "West Bengal": ["Kolkata"],
+      Punjab: ["Ludhiana", "Amritsar"],
+      Haryana: ["Gurugram", "Faridabad"],
+    },
+  },
+};
 
 function UserDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const fileRef = useRef(null);
 
-  /* ===== ROLE GUARD ===== */
-  useEffect(() => {
-    if (status !== "authenticated") return;
-    if (session?.user?.role === "dealer") {
-      router.replace("/dealer/dashboard");
-    }
-  }, [status, session]);
-
+  /* ================= STATE ================= */
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   const [profile, setProfile] = useState({
     name: "",
     email: "",
-    phone: "",
     dob: "",
-    address: "",
-    city: "",
+    country: "India",
+    countryCode: "+91",
+    phone: "",
     state: "",
-    pincode: "",
+    city: "",
+    photo: "",
     profileCompleted: false,
   });
 
-  const [myListings, setMyListings] = useState([]);
+  const [listings, setListings] = useState([]);
   const [saved, setSaved] = useState([]);
-  const [referral, setReferral] = useState({ code: "" });
+  const [referralCode, setReferralCode] = useState("");
 
-  /* ===== LOAD DATA ===== */
+  const locked = !profile.profileCompleted;
+
+  /* ================= MOBILE ================= */
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 900);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  /* ================= ROLE GUARD ================= */
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role === "dealer") {
+      router.replace("/dealer/dashboard");
+    }
+  }, [status, session, router]);
+
+  /* ================= LOAD DATA ================= */
   useEffect(() => {
     if (status !== "authenticated") return;
 
@@ -42,292 +74,382 @@ function UserDashboard() {
       try {
         const pr = await fetch("/api/user/profile");
         const pj = pr.ok ? await pr.json() : {};
-        setProfile({
+
+        setProfile((p) => ({
+          ...p,
           name: pj.name || session.user.name || "",
           email: pj.email || session.user.email || "",
-          phone: pj.phone || "",
           dob: pj.dob || "",
-          address: pj.address || "",
-          city: pj.city || "",
+          phone: pj.phone || "",
+          country: pj.country || "India",
+          countryCode: pj.countryCode || "+91",
           state: pj.state || "",
-          pincode: pj.pincode || "",
+          city: pj.city || "",
+          photo: pj.photo || "",
           profileCompleted: !!pj.profileCompleted,
-        });
+        }));
 
         const lr = await fetch("/api/user/listings");
-        const ljson = lr.ok ? await lr.json() : [];
-        setMyListings(Array.isArray(ljson) ? ljson : ljson.listings || []);
+        setListings(lr.ok ? await lr.json() : []);
 
         const sr = await fetch("/api/user/saved");
-        const sjson = sr.ok ? await sr.json() : [];
-        setSaved(Array.isArray(sjson) ? sjson : sjson.saved || []);
+        setSaved(sr.ok ? await sr.json() : []);
 
         const rr = await fetch("/api/user/referral");
         const rj = rr.ok ? await rr.json() : {};
-        setReferral({ code: rj.referralCode || "" });
-      } catch {}
-      setLoading(false);
+        setReferralCode(rj.referralCode || "");
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [status, session]);
 
-  /* ===== ACTIONS ===== */
-  async function saveProfile() {
-    if (!profile.phone || profile.phone.length !== 10)
-      return alert("Mobile number is required");
+  /* ================= PHOTO AUTO SAVE ================= */
+  async function uploadPhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
+    const fd = new FormData();
+    fd.append("photo", file);
+
+    const res = await fetch("/api/user/profile-photo", {
+      method: "POST",
+      body: fd,
+    });
+    const j = await res.json();
+
+    if (j.url) {
+      setProfile((p) => ({ ...p, photo: j.url }));
+      await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ photo: j.url }),
+      });
+    }
+  }
+
+  async function saveProfile() {
     await fetch("/api/user/profile", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...profile, profileCompleted: true }),
     });
-
-    alert("Profile saved successfully");
-    setProfile(p => ({ ...p, profileCompleted: true }));
+    setProfile((p) => ({ ...p, profileCompleted: true }));
+    setTab("overview");
   }
 
-  function editProperty(id) {
-    router.push(`/post-property?edit=${id}`);
-  }
+  if (loading) return <div style={{ padding: 40 }}>Loading dashboard…</div>;
 
-  async function deleteProperty(id) {
-    if (!confirm("Delete this property?")) return;
-    await fetch(`/api/user/listings?id=${id}`, { method: "DELETE" });
-    setMyListings(prev => prev.filter(p => p._id !== id));
-  }
-
-  if (loading) return <div style={{ padding: 40 }}>Loading…</div>;
+  /* ================= SHARE ================= */
+  const shareText = `Join Divine Acres using my referral code ${referralCode}`;
+  const shareUrl = "https://divineacres.com/signup";
 
   return (
-    <div className="wrap">
-      {/* ===== SIDEBAR ===== */}
-      <aside className="sidebar">
-        <div className="name">{profile.name || "User"}</div>
-        <div className="email">{profile.email}</div>
+    <div style={wrap}>
+      {/* ================= SIDEBAR ================= */}
+      {!isMobile && (
+        <aside style={sidebar}>
+          <div style={{ textAlign: "center" }}>
+            <img
+              src={profile.photo || "/images/avatar.png"}
+              style={avatar}
+              onClick={() => fileRef.current.click()}
+            />
+            <div style={{ fontWeight: 800 }}>{profile.name}</div>
+            <div style={{ fontSize: 12 }}>{profile.email}</div>
+          </div>
 
-        <Nav a={tab==="overview"} onClick={()=>setTab("overview")}>Overview</Nav>
-        <Nav a={tab==="free"} onClick={()=>setTab("free")}>Free Listing</Nav>
-        <Nav a={tab==="status"} onClick={()=>setTab("status")}>My Properties</Nav>
-        <Nav a={tab==="saved"} onClick={()=>setTab("saved")}>Saved Properties</Nav>
-        <Nav a={tab==="profile"} onClick={()=>setTab("profile")}>Profile</Nav>
+          <Side active={tab === "overview"} onClick={() => setTab("overview")}>
+            Overview
+          </Side>
+          <Side active={tab === "profile"} onClick={() => setTab("profile")}>
+            Profile
+          </Side>
+          <Side disabled={locked}>My Properties</Side>
+          <Side disabled={locked}>Saved</Side>
 
-        <button className="logout" onClick={() => signOut({ callbackUrl:"/" })}>
-          Logout
-        </button>
-      </aside>
+          <button style={logout} onClick={() => signOut({ callbackUrl: "/" })}>
+            Logout
+          </button>
+        </aside>
+      )}
 
-      {/* ===== MAIN ===== */}
-      <main className="main">
+      {/* ================= MAIN ================= */}
+      <main style={main}>
+        {/* ===== BECOME A DEALER CTA ===== */}
+        {session?.user?.role === "user" && (
+          <div
+            onClick={() => router.push("/dealer/register")}
+            style={{
+              marginBottom: 18,
+              padding: 16,
+              borderRadius: 14,
+              background: "linear-gradient(90deg,#e0ecff,#f5f9ff)",
+              border: "1px solid #c7d2fe",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              cursor: "pointer",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 800, color: "#1e40af" }}>
+                Are you a Real Estate Professional?
+              </div>
+              <div style={{ fontSize: 13, color: "#475569", marginTop: 4 }}>
+                Dealers & Builders get more leads, visibility & tools
+              </div>
+            </div>
+            <div
+              style={{
+                padding: "8px 16px",
+                borderRadius: 999,
+                background: "#2563eb",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: 13,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Become a Dealer →
+            </div>
+          </div>
+        )}
 
-        {/* ===== OVERVIEW ===== */}
-        {tab==="overview" && (
+        {locked && tab === "overview" && (
+          <div style={lockBox}>
+            Complete your profile to unlock all features
+            <button onClick={() => setTab("profile")}>Complete Profile</button>
+          </div>
+        )}
+
+        {tab === "overview" && (
           <>
-            <h2>Dashboard Overview</h2>
-
-            <div className="overviewGrid">
-
-              <div className="ovCard">
-                <div className="ovTitle">My Properties</div>
-                <div className="ovValue">{myListings.length}</div>
-                <div className="ovDesc">
-                  {myListings.length === 0
-                    ? "You haven’t listed any property yet"
-                    : "Properties you have posted"}
-                </div>
-                {myListings.length === 0 && (
-                  <button className="ovBtn" onClick={()=>setTab("free")}>
-                    Add your first property
-                  </button>
-                )}
-              </div>
-
-              <div className="ovCard">
-                <div className="ovTitle">Saved Properties</div>
-                <div className="ovValue">{saved.length}</div>
-                <div className="ovDesc">
-                  {saved.length === 0
-                    ? "You haven’t saved any property yet"
-                    : "Properties you liked & saved"}
-                </div>
-              </div>
-
-              <div className="ovCard">
-                <div className="ovTitle">Profile Status</div>
-                <div className={`ovStatus ${profile.profileCompleted ? "done":"pending"}`}>
-                  {profile.profileCompleted ? "Completed" : "Action Required"}
-                </div>
-                <div className="ovDesc">
-                  {profile.profileCompleted
-                    ? "Your profile is complete"
-                    : "Complete your profile to post properties"}
-                </div>
-                {!profile.profileCompleted && (
-                  <button className="ovBtn" onClick={()=>setTab("profile")}>
-                    Complete Profile
-                  </button>
-                )}
-              </div>
-
+            <div style={kpiGrid}>
+              <Kpi title="My Properties" value={listings.length} />
+              <Kpi title="Saved" value={saved.length} />
+              <Kpi
+                title="Profile Status"
+                value={profile.profileCompleted ? "Completed" : "Pending"}
+                onClick={() => setTab("profile")}
+              />
+              <Kpi title="Referral Code" value={referralCode || "—"} />
             </div>
 
-            <div className="refBox">
-              <div className="refHead">Earn with Referrals</div>
-              {referral.code ? (
-                <>
-                  <div className="refCode">{referral.code}</div>
-                  <div className="refMeta">
-                    Share this code with friends and earn rewards when they join.
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="refEmpty">Invite friends & start earning</div>
-                  <div className="refMeta">
-                    Refer people to Divine Acres and unlock future benefits.
-                  </div>
-                </>
-              )}
+            <div style={refBox}>
+              <b>Your Referral Code: {referralCode || "—"}</b>
+              <div style={shareRow}>
+                <a
+                  style={{ ...shareBtn, background: "#25D366" }}
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    shareText + " " + shareUrl
+                  )}`}
+                  target="_blank"
+                >
+                  WhatsApp
+                </a>
+                <a
+                  style={{ ...shareBtn, background: "#1877F2" }}
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`}
+                  target="_blank"
+                >
+                  Facebook
+                </a>
+                <button
+                  style={{ ...shareBtn, background: "#E1306C" }}
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      shareText + " " + shareUrl
+                    )
+                  }
+                >
+                  Instagram
+                </button>
+              </div>
             </div>
           </>
         )}
 
-        {/* ===== FREE LISTING ===== */}
-        {tab==="free" && (
-          <div>
-            <h2>Free Listing</h2>
-            <button onClick={()=>router.push("/post-property")}>
-              Add Free Property
-            </button>
+        {tab === "profile" && (
+          <div style={profileBox}>
+            <h3>Complete Profile</h3>
+
+            <Label>Full Name</Label>
+            <Input
+              value={profile.name}
+              onChange={(v) => setProfile((p) => ({ ...p, name: v }))}
+            />
+
+            <Label>Date of Birth (DD/MM/YYYY)</Label>
+            <Input
+              value={profile.dob}
+              onChange={(v) => setProfile((p) => ({ ...p, dob: v }))}
+            />
+
+            <Label>Country</Label>
+            <select style={input} value={profile.country}>
+              <option>India</option>
+            </select>
+
+            <Label>Mobile</Label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value="+91" disabled style={{ ...input, width: 70 }} />
+              <Input
+                value={profile.phone}
+                onChange={(v) =>
+                  setProfile((p) => ({
+                    ...p,
+                    phone: v.replace(/[^0-9]/g, ""),
+                  }))
+                }
+              />
+            </div>
+
+            <Label>State</Label>
+            <select
+              style={input}
+              value={profile.state}
+              onChange={(e) =>
+                setProfile((p) => ({
+                  ...p,
+                  state: e.target.value,
+                  city: "",
+                }))
+              }
+            >
+              <option value="">Select State</option>
+              {Object.keys(LOCATION.India.states).map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+
+            <Label>City</Label>
+            <select
+              style={input}
+              value={profile.city}
+              disabled={!profile.state}
+              onChange={(e) =>
+                setProfile((p) => ({ ...p, city: e.target.value }))
+              }
+            >
+              <option value="">Select City</option>
+              {(LOCATION.India.states[profile.state] || []).map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+
+            <button onClick={saveProfile}>Save & Unlock</button>
           </div>
         )}
-
-        {/* ===== MY PROPERTIES ===== */}
-        {tab==="status" && (
-          <div>
-            <h2>My Properties</h2>
-            {myListings.length === 0 ? (
-              <p>No properties listed yet.</p>
-            ) : (
-              <div className="grid">
-                {myListings.map(p => (
-                  <PropertyCard
-                    key={p._id}
-                    p={p}
-                    showActions
-                    onEdit={editProperty}
-                    onDelete={deleteProperty}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== SAVED ===== */}
-        {tab==="saved" && (
-          <div>
-            <h2>Saved Properties</h2>
-            {saved.length === 0 ? (
-              <p>No saved properties yet.</p>
-            ) : (
-              <div className="grid">
-                {saved.map(p => (
-                  <PropertyCard key={p._id} p={p} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== PROFILE ===== */}
-        {tab==="profile" && (
-          <div className="profileBox">
-            <h2>My Profile</h2>
-
-            <input value={profile.name} placeholder="Full Name"
-              onChange={e=>setProfile({...profile,name:e.target.value})}/>
-            <input value={profile.email} disabled />
-            <input value={profile.phone} placeholder="Mobile"
-              maxLength={10}
-              onChange={e=>setProfile({...profile,phone:e.target.value.replace(/[^0-9]/g,"")})}/>
-            <input value={profile.dob} placeholder="Date of Birth"
-              onChange={e=>setProfile({...profile,dob:e.target.value})}/>
-            <textarea value={profile.address} placeholder="Address"
-              onChange={e=>setProfile({...profile,address:e.target.value})}/>
-            <input value={profile.city} placeholder="City"
-              onChange={e=>setProfile({...profile,city:e.target.value})}/>
-            <input value={profile.state} placeholder="State"
-              onChange={e=>setProfile({...profile,state:e.target.value})}/>
-            <input value={profile.pincode} placeholder="Pincode"
-              maxLength={6}
-              onChange={e=>setProfile({...profile,pincode:e.target.value.replace(/[^0-9]/g,"")})}/>
-
-            <button onClick={saveProfile}>Save Profile</button>
-          </div>
-        )}
-
       </main>
 
-      <style jsx>{`
-        .wrap{display:flex;min-height:100vh;background:#f1f5fb}
-        .sidebar{width:260px;background:#0a2a5e;color:#fff;padding:18px}
-        .name{font-weight:600}
-        .email{font-size:12px;opacity:.8;margin-bottom:12px}
-        .main{flex:1;padding:20px}
-        .logout{margin-top:16px;width:100%;padding:10px;background:#ef4444;border:none;border-radius:8px;color:#fff}
-
-        .overviewGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:20px}
-        .ovCard{background:#fff;padding:18px;border-radius:14px;box-shadow:0 10px 24px rgba(30,64,175,.12)}
-        .ovTitle{font-size:13px;color:#64748b}
-        .ovValue{font-size:26px;font-weight:700;color:#1e40af;margin-top:6px}
-        .ovDesc{font-size:13px;color:#475569;margin-top:4px}
-        .ovBtn{margin-top:10px;padding:8px 12px;background:#e0e7ff;color:#1e40af;border:none;border-radius:8px;font-size:13px;cursor:pointer}
-        .ovStatus{font-size:18px;font-weight:700;margin-top:6px}
-        .ovStatus.done{color:#16a34a}
-        .ovStatus.pending{color:#dc2626}
-
-        .refBox{background:#eef2ff;padding:20px;border-radius:16px}
-        .refHead{font-size:16px;font-weight:700;color:#1e3a8a}
-        .refCode{font-size:22px;font-weight:800;color:#1e40af;margin-top:6px}
-        .refEmpty{font-size:18px;font-weight:700;color:#1e40af;margin-top:6px}
-        .refMeta{font-size:13px;color:#475569;margin-top:4px}
-
-        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
-        .profileBox{max-width:520px;background:#fff;padding:20px;border-radius:14px}
-        input,textarea{width:100%;margin-bottom:10px;padding:10px;border-radius:8px;border:1px solid #c7d2fe}
-        button{padding:12px 16px;background:#1e4ed8;color:#fff;border:none;border-radius:8px}
-      `}</style>
+      <input
+        hidden
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        onChange={uploadPhoto}
+      />
     </div>
   );
 }
 
-const Nav = ({a, children, onClick}) => (
-  <div onClick={onClick}
-    style={{padding:10,cursor:"pointer",borderRadius:8,background:a?"rgba(255,255,255,.18)":""}}>
+/* ================= SMALL COMPONENTS ================= */
+
+const Side = ({ children, active, disabled, onClick }) => (
+  <div
+    onClick={!disabled ? onClick : undefined}
+    style={{
+      padding: 10,
+      marginTop: 6,
+      borderRadius: 8,
+      background: active ? "#1e40af" : "transparent",
+      color: disabled ? "#94a3b8" : "#fff",
+      cursor: disabled ? "not-allowed" : "pointer",
+      fontWeight: 700,
+    }}
+  >
     {children}
   </div>
 );
 
-function PropertyCard({ p, showActions, onEdit, onDelete }) {
-  return (
-    <div className="card">
-      <img src={p.image || "/images/no-photo.png"} />
-      <div>
-        <b>{p.title}</b>
-        <div>{p.price}</div>
-        {p.status && <div>{p.status}</div>}
-        {showActions && (
-          <div style={{marginTop:6}}>
-            <button onClick={()=>onEdit(p._id)}>Edit</button>{" "}
-            <button onClick={()=>onDelete(p._id)}>Delete</button>
-          </div>
-        )}
-      </div>
-      <style jsx>{`
-        .card{background:#fff;border-radius:10px;padding:10px;display:flex;gap:10px}
-        img{width:120px;height:90px;border-radius:8px;object-fit:cover}
-      `}</style>
-    </div>
-  );
-}
+const Kpi = ({ title, value, onClick }) => (
+  <div
+    onClick={onClick}
+    style={{
+      background: "#fff",
+      padding: 16,
+      borderRadius: 14,
+      cursor: onClick ? "pointer" : "default",
+    }}
+  >
+    <div>{title}</div>
+    <b>{value}</b>
+  </div>
+);
 
-export default dynamic(() => Promise.resolve(UserDashboard), { ssr:false });
+const Label = ({ children }) => (
+  <label style={{ fontWeight: 700 }}>{children}</label>
+);
+const Input = ({ value, onChange }) => (
+  <input
+    style={input}
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+  />
+);
+
+/* ================= STYLES ================= */
+
+const wrap = { display: "flex", minHeight: "100vh", background: "#f1f5fb" };
+const sidebar = {
+  width: 260,
+  background: "#0a2a5e",
+  color: "#fff",
+  padding: 18,
+};
+const main = { flex: 1, padding: 20 };
+
+const avatar = { width: 72, height: 72, borderRadius: "50%", cursor: "pointer" };
+const logout = { marginTop: 20 };
+
+const lockBox = {
+  background: "#fff3cd",
+  padding: 14,
+  borderRadius: 10,
+  marginBottom: 20,
+};
+
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))",
+  gap: 14,
+};
+const refBox = {
+  marginTop: 16,
+  background: "#eef2ff",
+  padding: 14,
+  borderRadius: 14,
+};
+const shareRow = {
+  display: "flex",
+  gap: 10,
+  marginTop: 10,
+  flexWrap: "wrap",
+};
+const shareBtn = {
+  padding: "6px 14px",
+  borderRadius: 20,
+  color: "#fff",
+  border: "none",
+};
+
+const profileBox = {
+  background: "#fff",
+  padding: 20,
+  borderRadius: 14,
+  maxWidth: 520,
+};
+const input = { width: "100%", padding: 8, marginBottom: 10 };
+
+export default dynamic(() => Promise.resolve(UserDashboard), { ssr: false });

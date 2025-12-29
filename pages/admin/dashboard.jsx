@@ -1,200 +1,231 @@
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { getSession } from "next-auth/react";
+import { useState } from "react";
+import AdminLayout from "../../components/admin/AdminLayout";
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
-/* ===== TAB COMPONENTS ===== */
-import PendingTab from "./pending";
-import SubscriptionsTab from "./subscriptions";
-import AuditLogTab from "./audit-log";
+/* ================= DUMMY DATA (API LATER) ================= */
+const DATA = {
+  kpi: {
+    newUsers: 640,
+    newDealers: 70,
+    newListings: 320,
+    pending: 84,
+    activeSubs: 430,
+    todayRevenue: 42000,
+  },
 
-/* ================= ADMIN EMAIL WHITELIST ================= */
-const ADMIN_EMAILS = [
-  "inder.ambalika@gmail.com",
-  "divinetoonz11@gmail.com",
-];
+  revenueDaily: [
+    { day: "1", value: 22000 },
+    { day: "5", value: 28000 },
+    { day: "10", value: 35000 },
+    { day: "15", value: 30000 },
+    { day: "20", value: 42000 },
+    { day: "25", value: 38000 },
+  ],
 
-/* ================= DEMO DATA ================= */
-const DEMO_USERS = [
-  { _id: "u_demo1", name: "Deepika Sharma", mobile: "9876500001", email: "deepika1@example.com" },
-  { _id: "u_demo2", name: "Rohan Verma", mobile: "9876500002", email: "rohan2@example.com" },
-];
+  conversion: [
+    { month: "Jan", users: 420, dealers: 40 },
+    { month: "Feb", users: 510, dealers: 55 },
+    { month: "Mar", users: 640, dealers: 70 },
+  ],
 
-const DEMO_DEALERS = [
-  { _id: "d_demo1", name: "Prime Estates", mobile: "9987600001", email: "prime@dealer.com", dealerStatus: "APPROVED" },
-  { _id: "d_demo2", name: "Urban Realty", mobile: "9987600002", email: "urban@dealer.com", dealerStatus: "PENDING" },
-];
+  subscriptions: [
+    { month: "Jan", new: 40, expired: 12 },
+    { month: "Feb", new: 50, expired: 18 },
+    { month: "Mar", new: 60, expired: 14 },
+  ],
 
-const DEMO_PROPERTIES = [
-  { _id: "p_demo1", title: "2 BHK Green Park", city: "Delhi", price: "45 L", status: "APPROVED" },
-  { _id: "p_demo2", title: "Villa Blue Ridge", city: "Pune", price: "1.2 Cr", status: "PENDING" },
-];
+  listings: [
+    { month: "Jan", live: 3800, pending: 220, rejected: 40 },
+    { month: "Feb", live: 4020, pending: 300, rejected: 60 },
+    { month: "Mar", live: 4120, pending: 320, rejected: 80 },
+  ],
+};
 
 export default function AdminDashboard() {
-  const router = useRouter();
-  const [active, setActive] = useState("Overview");
-  const [searchQ, setSearchQ] = useState("");
-  const [checking, setChecking] = useState(true);
-
-  const [users, setUsers] = useState(DEMO_USERS);
-  const [dealers, setDealers] = useState(DEMO_DEALERS);
-  const [properties, setProperties] = useState(DEMO_PROPERTIES);
-
-  /* ================= SECURITY GUARD ================= */
-  useEffect(() => {
-    (async () => {
-      const session = await getSession();
-      if (!session || !ADMIN_EMAILS.includes(session.user?.email)) {
-        router.replace("/");
-        return;
-      }
-      setChecking(false);
-    })();
-  }, []);
-
-  /* ================= FETCH REAL DATA ================= */
-  useEffect(() => {
-    if (checking) return;
-
-    fetch("/api/admin/users")
-      .then(r => r.json())
-      .then(d => d?.ok && setUsers([...DEMO_USERS, ...(d.users || [])]));
-
-    fetch("/api/admin/dealers")
-      .then(r => r.json())
-      .then(d => d?.ok && setDealers([...DEMO_DEALERS, ...(d.dealers || [])]));
-
-    fetch("/api/admin/properties")
-      .then(r => r.json())
-      .then(d => d?.ok && setProperties([...DEMO_PROPERTIES, ...(d.properties || d.data || [])]));
-  }, [checking]);
-
-  if (checking) {
-    return <div style={{ padding: 40, textAlign: "center" }}>Checking admin access…</div>;
-  }
-
-  /* ================= FULL MENU ================= */
-  const menu = [
-    "Overview",
-    "Users",
-    "Dealers",
-    "Properties",
-    "Pending",
-    "Enquiries",
-    "Payments / Transactions",
-    "Reports / Analytics",
-    "Subscriptions / Packages",
-    "Notifications",
-    "Messages / Chat",
-    "Blog / Content",
-    "Ads / Promotions",
-    "Branches / Locations",
-    "Settings",
-    "Audit Log / History",
-  ];
-
-  const filter = (arr) =>
-    arr.filter((o) =>
-      Object.values(o).join(" ").toLowerCase().includes(searchQ.toLowerCase())
-    );
+  const [active, setActive] = useState(null);
 
   return (
-    <div className="admin-wrapper">
-      {/* SIDEBAR */}
-      <aside className="admin-sidebar">
-        <b style={{ marginBottom: 12, display: "block" }}>Admin Panel</b>
-        {menu.map(m => (
-          <div
-            key={m}
-            onClick={() => setActive(m)}
-            className={`admin-sidebar-item ${active === m ? "active" : ""}`}
-          >
-            {m}
-          </div>
-        ))}
-      </aside>
-
-      {/* MAIN */}
-      <main className="admin-main">
-        <div className="admin-topbar">
-          <b>{active}</b>
-          <input
-            placeholder="Search…"
-            value={searchQ}
-            onChange={(e) => setSearchQ(e.target.value)}
+    <AdminLayout>
+      <div style={page}>
+        {/* ================= KPI ACTION CARDS ================= */}
+        <div style={kpiGrid}>
+          <KPI
+            title="New Users"
+            value={DATA.kpi.newUsers}
+            color="#22c55e"
+            active={active === "users"}
+            onClick={() => setActive("users")}
+          />
+          <KPI
+            title="New Dealers"
+            value={DATA.kpi.newDealers}
+            color="#9333ea"
+            active={active === "dealers"}
+            onClick={() => setActive("dealers")}
+          />
+          <KPI
+            title="New Listings"
+            value={DATA.kpi.newListings}
+            color="#2563eb"
+            active={active === "listings"}
+            onClick={() => setActive("listings")}
+          />
+          <KPI
+            title="Pending Approvals"
+            value={DATA.kpi.pending}
+            color="#f97316"
+            active={active === "pending"}
+            onClick={() => setActive("pending")}
+          />
+          <KPI
+            title="Active Subscriptions"
+            value={DATA.kpi.activeSubs}
+            color="#0ea5e9"
+            active={active === "subs"}
+            onClick={() => setActive("subs")}
+          />
+          <KPI
+            title="Today's Revenue"
+            value={`₹ ${DATA.kpi.todayRevenue.toLocaleString("en-IN")}`}
+            color="#16a34a"
+            active={active === "revenue"}
+            onClick={() => setActive("revenue")}
           />
         </div>
 
-        <div style={{ padding: 24 }}>
-          {active === "Overview" && (
-            <div className="admin-grid">
-              <Card title="Users" value={users.length} />
-              <Card title="Dealers" value={dealers.length} />
-              <Card title="Properties" value={properties.length} />
-            </div>
-          )}
+        {/* ================= GRAPHS ================= */}
+        <div style={graphGrid}>
+          {/* REVENUE DRILL */}
+          <Panel title="Daily Revenue (This Month)">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={DATA.revenueDaily}>
+                <XAxis dataKey="day" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="value" fill="#22c55e" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Panel>
 
-          {active === "Users" && (
-            <Table title="Users" data={filter(users)} cols={["name", "mobile", "email"]} />
-          )}
+          {/* USERS vs DEALERS */}
+          <Panel title="Users → Dealers Conversion">
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={DATA.conversion}>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line
+                  dataKey="users"
+                  stroke="#22c55e"
+                  strokeWidth={3}
+                />
+                <Line
+                  dataKey="dealers"
+                  stroke="#9333ea"
+                  strokeWidth={3}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </Panel>
 
-          {active === "Dealers" && (
-            <Table title="Dealers" data={filter(dealers)} cols={["name", "mobile", "email", "dealerStatus"]} />
-          )}
+          {/* SUBSCRIPTIONS */}
+          <Panel title="Subscription Health">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={DATA.subscriptions}>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="new" fill="#2563eb" />
+                <Bar dataKey="expired" fill="#ef4444" />
+              </BarChart>
+            </ResponsiveContainer>
+          </Panel>
 
-          {active === "Properties" && (
-            <Table title="Properties" data={filter(properties)} cols={["title", "city", "price", "status"]} />
-          )}
-
-          {active === "Pending" && <PendingTab />}
-
-          {active === "Subscriptions / Packages" && <SubscriptionsTab />}
-
-          {active === "Audit Log / History" && <AuditLogTab />}
-
-          {![
-            "Overview",
-            "Users",
-            "Dealers",
-            "Properties",
-            "Pending",
-            "Subscriptions / Packages",
-            "Audit Log / History",
-          ].includes(active) && (
-            <div className="admin-card">
-              <h3>{active}</h3>
-              <p style={{ color: "#6b7280" }}>
-                {active} section backend connect hone ke baad active hoga.
-              </p>
-            </div>
-          )}
+          {/* LISTINGS WORKFLOW */}
+          <Panel title="Listings Workflow">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={DATA.listings} stackOffset="expand">
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="live" stackId="a" fill="#22c55e" />
+                <Bar dataKey="pending" stackId="a" fill="#f97316" />
+                <Bar dataKey="rejected" stackId="a" fill="#ef4444" />
+              </BarChart>
+            </ResponsiveContainer>
+          </Panel>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
 
-/* ================= SMALL COMPONENTS ================= */
-const Card = ({ title, value }) => (
-  <div className="admin-card">
-    <div style={{ fontSize: 13, color: "#64748b" }}>{title}</div>
-    <div style={{ fontSize: 26, fontWeight: 800 }}>{value}</div>
+/* ================= COMPONENTS ================= */
+
+const KPI = ({ title, value, color, onClick, active }) => (
+  <div
+    onClick={onClick}
+    style={{
+      ...kpi,
+      borderColor: active ? color : "#e5e7eb",
+      transform: active ? "scale(1.03)" : "scale(1)",
+    }}
+  >
+    <div style={{ color }}>{title}</div>
+    <div style={{ fontSize: 26, fontWeight: 900 }}>{value}</div>
   </div>
 );
 
-const Table = ({ title, data, cols }) => (
-  <div className="admin-card">
-    <h3>{title}</h3>
-    <table className="admin-table" width="100%">
-      <thead>
-        <tr>{cols.map(c => <th key={c}>{c}</th>)}</tr>
-      </thead>
-      <tbody>
-        {data.map(row => (
-          <tr key={row._id}>
-            {cols.map(c => <td key={c}>{row[c]}</td>)}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+const Panel = ({ title, children }) => (
+  <div style={panel}>
+    <h3 style={{ marginBottom: 10 }}>{title}</h3>
+    {children}
   </div>
 );
+
+/* ================= STYLES ================= */
+
+const page = { padding: 28, background: "#f8fafc" };
+
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+  gap: 16,
+  marginBottom: 28,
+};
+
+const kpi = {
+  background: "#fff",
+  padding: 18,
+  borderRadius: 14,
+  border: "2px solid #e5e7eb",
+  cursor: "pointer",
+  transition: "all .2s ease",
+  boxShadow: "0 6px 20px rgba(15,23,42,.08)",
+};
+
+const graphGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(420px,1fr))",
+  gap: 20,
+};
+
+const panel = {
+  background: "#fff",
+  padding: 18,
+  borderRadius: 14,
+  boxShadow: "0 8px 24px rgba(15,23,42,.08)",
+};

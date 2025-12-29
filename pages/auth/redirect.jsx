@@ -1,39 +1,51 @@
-import { getSession } from "next-auth/react";
-import { useEffect } from "react";
-import { useRouter } from "next/router";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../api/auth/[...nextauth]";
 
-export async function getServerSideProps(ctx) {
-  const session = await getSession(ctx);
+export async function getServerSideProps({ req, res }) {
+  const session = await getServerSession(req, res, authOptions);
 
-  if (!session?.user) {
+  // ❌ Login nahi hai
+  if (!session) {
     return {
-      redirect: { destination: "/", permanent: false },
+      redirect: {
+        destination: "/",
+        permanent: false,
+      },
     };
   }
 
+  const role = session.user?.role;
+
+  // 🔐 ADMIN
+  if (role === "admin") {
+    return {
+      redirect: {
+        destination: "/admin",
+        permanent: false,
+      },
+    };
+  }
+
+  // 🧑‍💼 DEALER
+  if (role === "dealer") {
+    return {
+      redirect: {
+        destination: "/dealer/dashboard",
+        permanent: false,
+      },
+    };
+  }
+
+  // 👤 USER (default)
   return {
-    props: {
-      role: ctx.query.role || "user",
+    redirect: {
+      destination: "/user/dashboard",
+      permanent: false,
     },
   };
 }
 
-export default function Redirect({ role }) {
-  const router = useRouter();
-
-  useEffect(() => {
-    const run = async () => {
-      if (role === "dealer") {
-        // 🔥 THIS MAKES DEALER JUST LIKE USER
-        await fetch("/api/set-dealer", { method: "POST" });
-        router.replace("/dealer/dashboard");
-      } else {
-        router.replace("/user/dashboard");
-      }
-    };
-
-    run();
-  }, [role, router]);
-
+// 👇 Ye page kabhi render nahi hota
+export default function Redirect() {
   return null;
 }

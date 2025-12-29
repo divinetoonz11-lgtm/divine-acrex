@@ -2,16 +2,37 @@ import React, { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 
 export default function LoginModal({ open, onClose }) {
-  const [step, setStep] = useState("role"); // role | form | otp
-  const [role, setRole] = useState(""); // "user" | "dealer"
+  const [step, setStep] = useState("role"); // role | login | otp
+  const [role, setRole] = useState("");
   const [agree, setAgree] = useState(false);
 
+  // OTP
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [serverOtp, setServerOtp] = useState("");
 
-  /* ========== RESET ========== */
+  // USERNAME / PASSWORD
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  // REFERRAL
+  const [referralCode, setReferralCode] = useState("");
+
+  // CAPTCHA
+  const [num1, setNum1] = useState(0);
+  const [num2, setNum2] = useState(0);
+  const [captcha, setCaptcha] = useState("");
+
+  function generateCaptcha() {
+    const a = Math.floor(Math.random() * 9) + 1;
+    const b = Math.floor(Math.random() * 9) + 1;
+    setNum1(a);
+    setNum2(b);
+    setCaptcha("");
+  }
+
   useEffect(() => {
+    if (open) generateCaptcha();
     if (!open) {
       setStep("role");
       setRole("");
@@ -19,75 +40,86 @@ export default function LoginModal({ open, onClose }) {
       setPhone("");
       setOtp("");
       setServerOtp("");
+      setUsername("");
+      setPassword("");
+      setReferralCode("");
+      setCaptcha("");
     }
   }, [open]);
 
   if (!open) return null;
 
-  /* ========== ROLE SELECT (CRITICAL) ========== */
-  const selectRole = (r) => {
-    setRole(r);                 // 🔥 THIS decides URL
-    setStep("form");
+  const verifyCaptcha = () => {
+    if (parseInt(captcha) !== num1 + num2) {
+      alert("Captcha incorrect. Please try again.");
+      generateCaptcha();
+      return false;
+    }
+    return true;
   };
 
-  /* ========== GOOGLE LOGIN (FINAL) ========== */
+  /* ================= GOOGLE LOGIN ================= */
   const googleLogin = async () => {
-    if (!role) return alert("Select User or Dealer");
-    if (!agree) return alert("Accept Terms & Conditions");
+    if (!verifyCaptcha()) return;
+    if (!agree) return alert("Please accept Terms & Conditions");
 
-    // 🔥🔥 THIS IS THE ONLY PLACE URL IS DECIDED 🔥🔥
-    const callbackUrl =
-      role === "dealer"
-        ? "/auth/redirect?role=dealer"
-        : "/auth/redirect?role=user";
+    if (referralCode) {
+      localStorage.setItem("referralCode", referralCode);
+    }
 
-    console.log("LOGIN ROLE:", role);
-    console.log("CALLBACK URL:", callbackUrl);
-
-    await signIn("google", { callbackUrl });
+    await signIn("google", {
+      callbackUrl: "/auth/redirect",
+    });
   };
 
-  /* ========== SEND OTP ========== */
+  /* ================= USERNAME / PASSWORD LOGIN ================= */
+  const passwordLogin = async () => {
+    if (!verifyCaptcha()) return;
+    if (!username || !password) return alert("Enter Username & Password");
+
+    const res = await signIn("credentials", {
+      username,
+      password,
+      referralCode,
+      redirect: false,
+    });
+
+    if (!res?.ok) return alert("Invalid login");
+    window.location.href = "/auth/redirect";
+  };
+
+  /* ================= OTP FLOW ================= */
   const sendOtp = async () => {
-    if (!role) return alert("Select User or Dealer");
-    if (!agree) return alert("Accept Terms & Conditions");
-    if (phone.length !== 10) return alert("Enter valid phone number");
+    if (!verifyCaptcha()) return;
+    if (!agree) return alert("Please accept Terms & Conditions");
+    if (phone.length !== 10) return alert("Invalid mobile number");
 
     const res = await fetch("/api/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
+      body: JSON.stringify({ phone, referralCode }),
     });
 
     const data = await res.json();
     if (!data.ok) return alert("OTP failed");
 
-    if (data.otp) {
-      setServerOtp(data.otp);
-      setOtp(data.otp);
-    }
-
+    setServerOtp(data.otp);
     setStep("otp");
   };
 
-  /* ========== VERIFY OTP ========== */
   const verifyOtp = async () => {
+    if (!verifyCaptcha()) return;
     if (otp.length !== 6) return alert("Invalid OTP");
 
-    const login = await signIn("credentials", {
+    const res = await signIn("credentials", {
       phone,
       otp,
+      referralCode,
       redirect: false,
     });
 
-    if (login?.ok) {
-      window.location.href =
-        role === "dealer"
-          ? "/dealer/dashboard"
-          : "/user/dashboard";
-    } else {
-      alert("Phone login failed");
-    }
+    if (!res?.ok) return alert("Login failed");
+    window.location.href = "/auth/redirect";
   };
 
   return (
@@ -95,25 +127,23 @@ export default function LoginModal({ open, onClose }) {
       <div style={box} onClick={(e) => e.stopPropagation()}>
         <button style={close} onClick={onClose}>✕</button>
 
+        {/* ===== ROLE SELECT ===== */}
         {step === "role" && (
           <>
             <h2 style={title}>Select Account Type</h2>
-
-            <button style={roleBtn} onClick={() => selectRole("user")}>
+            <button style={roleBtn} onClick={() => { setRole("user"); setStep("login"); generateCaptcha(); }}>
               Login as User
             </button>
-
-            <button style={roleBtnAlt} onClick={() => selectRole("dealer")}>
+            <button style={roleBtnAlt} onClick={() => { setRole("dealer"); setStep("login"); generateCaptcha(); }}>
               Login as Dealer
             </button>
           </>
         )}
 
-        {step === "form" && (
+        {/* ===== LOGIN ===== */}
+        {step === "login" && (
           <>
-            <h2 style={title}>
-              {role === "dealer" ? "Dealer Login" : "User Login"}
-            </h2>
+            <h2 style={title}>{role === "dealer" ? "Dealer Login" : "User Login"}</h2>
 
             <button style={googleBtn} onClick={googleLogin}>
               Continue with Google
@@ -122,18 +152,52 @@ export default function LoginModal({ open, onClose }) {
             <div style={orLine}>OR</div>
 
             <input
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              style={input}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={input}
+            />
+            <button style={btn} onClick={passwordLogin}>
+              Login with Password
+            </button>
+
+            <div style={orLine}>OR</div>
+
+            <input
               placeholder="Mobile Number"
               value={phone}
               maxLength={10}
-              onChange={(e) =>
-                setPhone(e.target.value.replace(/[^0-9]/g, ""))
-              }
+              onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))}
+              style={input}
+            />
+            <button style={btnAlt} onClick={sendOtp}>
+              Send OTP
+            </button>
+
+            <input
+              placeholder="Referral Code (optional)"
+              value={referralCode}
+              onChange={(e) => setReferralCode(e.target.value)}
               style={input}
             />
 
-            <button style={btn} onClick={sendOtp}>
-              Send OTP
-            </button>
+            {/* CAPTCHA */}
+            <div style={captchaBox}>
+              <span>{num1} + {num2} =</span>
+              <input
+                value={captcha}
+                onChange={(e) => setCaptcha(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="Answer"
+                style={captchaInput}
+              />
+            </div>
 
             <label style={agreeBox}>
               <input
@@ -141,29 +205,23 @@ export default function LoginModal({ open, onClose }) {
                 checked={agree}
                 onChange={(e) => setAgree(e.target.checked)}
               />
-              <span>I agree to Terms & Conditions</span>
+              <span>I agree to <u>Terms & Conditions</u></span>
             </label>
           </>
         )}
 
+        {/* ===== OTP VERIFY ===== */}
         {step === "otp" && (
           <>
             <h2 style={title}>Verify OTP</h2>
-
             <input
-              placeholder="Enter 6-digit OTP"
+              placeholder="Enter OTP"
               value={otp}
               maxLength={6}
-              onChange={(e) =>
-                setOtp(e.target.value.replace(/[^0-9]/g, ""))
-              }
+              onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ""))}
               style={inputOtp}
             />
-
-            {serverOtp && (
-              <div style={otpBox}>OTP: {serverOtp}</div>
-            )}
-
+            {serverOtp && <div style={otpBox}>OTP: {serverOtp}</div>}
             <button style={btn} onClick={verifyOtp}>
               Verify & Login
             </button>
@@ -174,22 +232,25 @@ export default function LoginModal({ open, onClose }) {
   );
 }
 
-/* ========== STYLES ========== */
+/* ================= MOBILE-FIRST STYLES ================= */
 
 const overlay = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.55)",
+  background: "rgba(0,0,0,.55)",
   display: "flex",
-  alignItems: "center",
   justifyContent: "center",
+  alignItems: "center",
   zIndex: 9999,
 };
 
 const box = {
-  width: 420,
+  width: "92%",
+  maxWidth: 420,
+  maxHeight: "90vh",
+  overflowY: "auto",
   background: "#fff",
-  padding: 24,
+  padding: 20,
   borderRadius: 14,
   position: "relative",
 };
@@ -198,27 +259,25 @@ const close = {
   position: "absolute",
   top: 10,
   right: 12,
-  border: "none",
   background: "transparent",
+  border: "none",
   fontSize: 22,
-  cursor: "pointer",
 };
 
 const title = {
   textAlign: "center",
-  marginBottom: 18,
+  marginBottom: 16,
   fontWeight: 800,
 };
 
 const roleBtn = {
   width: "100%",
   padding: 14,
-  marginTop: 12,
   borderRadius: 10,
   background: "#315DFF",
   color: "#fff",
   border: "none",
-  cursor: "pointer",
+  marginBottom: 10,
 };
 
 const roleBtnAlt = {
@@ -231,12 +290,11 @@ const googleBtn = {
   padding: 12,
   borderRadius: 8,
   border: "1px solid #ddd",
-  cursor: "pointer",
 };
 
 const orLine = {
   textAlign: "center",
-  margin: "14px 0",
+  margin: "12px 0",
   color: "#777",
 };
 
@@ -263,7 +321,11 @@ const btn = {
   color: "#fff",
   border: "none",
   borderRadius: 8,
-  cursor: "pointer",
+};
+
+const btnAlt = {
+  ...btn,
+  background: "#0A2E6F",
 };
 
 const agreeBox = {
@@ -280,4 +342,18 @@ const otpBox = {
   borderRadius: 6,
   textAlign: "center",
   fontWeight: 800,
+};
+
+const captchaBox = {
+  display: "flex",
+  gap: 10,
+  alignItems: "center",
+  marginTop: 12,
+};
+
+const captchaInput = {
+  width: 80,
+  padding: 8,
+  border: "1px solid #ddd",
+  borderRadius: 6,
 };

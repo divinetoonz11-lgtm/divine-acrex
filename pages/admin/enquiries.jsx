@@ -1,17 +1,17 @@
 // pages/admin/enquiries.jsx
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import AdminLayout from "../../components/admin/AdminLayout";
 import AdminGuard from "../../components/AdminGuard";
 
 function AdminEnquiriesPage() {
+  const router = useRouter();
+  const tab = router.query.tab || "all";
+
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [viewItem, setViewItem] = useState(null);
-
-  const key =
-    typeof window !== "undefined"
-      ? sessionStorage.getItem("admin_key") || process.env.NEXT_PUBLIC_ADMIN_KEY
-      : process.env.NEXT_PUBLIC_ADMIN_KEY;
 
   useEffect(() => {
     loadLeads();
@@ -20,42 +20,31 @@ function AdminEnquiriesPage() {
   async function loadLeads() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/leads/get", {
-        headers: { "x-admin-key": key },
-      });
+      const res = await fetch("/api/admin/enquiries");
       const data = await res.json();
       if (res.ok) setLeads(data.leads || []);
-      else {
-        setLeads([]);
-        alert(data.error || "Failed to load enquiries");
-      }
-    } catch (err) {
-      alert("Failed to load enquiries: " + err.message);
+      else setLeads([]);
+    } catch {
       setLeads([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function markRead(leadId, status) {
-    setBusyId(leadId);
+  async function markRead(id, read) {
+    setBusyId(id);
     try {
-      const res = await fetch("/api/admin/leads/update-status", {
+      const res = await fetch("/api/admin/enquiries/update", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key": key,
-        },
-        body: JSON.stringify({ id: leadId, read: status }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, read }),
       });
-      const data = await res.json();
+      const d = await res.json();
       if (res.ok) {
         setLeads((prev) =>
-          prev.map((l) => (l._id === data.lead._id ? data.lead : l))
+          prev.map((l) => (l._id === d.lead._id ? d.lead : l))
         );
-      } else alert(data.error || "Update failed");
-    } catch (err) {
-      alert("Update failed: " + err.message);
+      }
     } finally {
       setBusyId(null);
     }
@@ -65,197 +54,142 @@ function AdminEnquiriesPage() {
     if (!confirm("Delete this enquiry permanently?")) return;
     setBusyId(id);
     try {
-      const res = await fetch("/api/admin/leads/delete", {
+      const res = await fetch("/api/admin/enquiries/delete", {
         method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key": key,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const data = await res.json();
-      if (res.ok) setLeads((prev) => prev.filter((l) => l._id !== id));
-      else alert(data.error || "Delete failed");
-    } catch (err) {
-      alert("Delete failed: " + err.message);
+      if (res.ok) {
+        setLeads((prev) => prev.filter((l) => l._id !== id));
+      }
     } finally {
       setBusyId(null);
     }
   }
 
+  const filtered = leads.filter((l) => {
+    if (tab === "unread") return !l.read;
+    if (tab === "read") return l.read;
+    return true;
+  });
+
   return (
-    <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 14,
-        }}
-      >
-        <h2 style={{ margin: 0 }}>Enquiries</h2>
-        <button onClick={loadLeads} style={btnSecondary}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
+    <AdminLayout
+      topTabs={[
+        { key: "all", label: "All Enquiries", default: true },
+        { key: "unread", label: "Unread" },
+        { key: "read", label: "Read" },
+      ]}
+    >
+      <div style={{ maxWidth: 1300 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 16 }}>
+          Enquiries
+        </h1>
 
-      <div
-        style={{
-          overflowX: "auto",
-          background: "#fff",
-          borderRadius: 8,
-          boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-        }}
-      >
-        <table
-          style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}
-        >
-          <thead style={{ background: "#f8fafc" }}>
-            <tr>
-              <th style={th}>Name</th>
-              <th style={th}>Email</th>
-              <th style={th}>Phone</th>
-              <th style={th}>Property</th>
-              <th style={th}>Status</th>
-              <th style={th}>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {loading && leads.length === 0 && (
+        <div style={card}>
+          <table style={{ width: "100%", minWidth: 1000, borderCollapse: "collapse" }}>
+            <thead style={{ background: "#f8fafc" }}>
               <tr>
-                <td colSpan={6} style={{ padding: 20, textAlign: "center" }}>
-                  Loading enquiries…
-                </td>
+                <th style={th}>Name</th>
+                <th style={th}>Email</th>
+                <th style={th}>Phone</th>
+                <th style={th}>Property</th>
+                <th style={th}>Status</th>
+                <th style={th}>Actions</th>
               </tr>
-            )}
+            </thead>
 
-            {!loading && leads.length === 0 && (
-              <tr>
-                <td colSpan={6} style={{ padding: 20, textAlign: "center" }}>
-                  No enquiries found.
-                </td>
-              </tr>
-            )}
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={6} style={empty}>Loading enquiries…</td>
+                </tr>
+              )}
 
-            {leads.map((lead) => (
-              <tr key={lead._id} style={{ borderBottom: "1px solid #eef2f6" }}>
-                <td style={td}>{lead.name}</td>
-                <td style={td}>{lead.email}</td>
-                <td style={td}>{lead.phone}</td>
-                <td style={td}>{lead.propertyTitle || "-"}</td>
-                <td style={td}>{lead.read ? "Read" : "Unread"}</td>
-                <td style={td}>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      disabled={busyId === lead._id}
-                      onClick={() => setViewItem(lead)}
-                      style={btnSmall}
-                    >
-                      View
-                    </button>
+              {!loading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={empty}>No enquiries found</td>
+                </tr>
+              )}
 
-                    <button
-                      disabled={busyId === lead._id}
-                      onClick={() => markRead(lead._id, !lead.read)}
-                      style={btnSmall}
-                    >
-                      {busyId === lead._id
-                        ? "…"
-                        : lead.read
-                        ? "Mark Unread"
-                        : "Mark Read"}
-                    </button>
+              {filtered.map((l) => (
+                <tr key={l._id} style={{ borderBottom: "1px solid #eef2f6" }}>
+                  <td style={td}>{l.name}</td>
+                  <td style={td}>{l.email}</td>
+                  <td style={td}>{l.phone}</td>
+                  <td style={td}>{l.propertyTitle || "-"}</td>
+                  <td style={td}>{l.read ? "Read" : "Unread"}</td>
+                  <td style={td}>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => setViewItem(l)} style={btnSmall}>
+                        View
+                      </button>
+                      <button
+                        disabled={busyId === l._id}
+                        onClick={() => markRead(l._id, !l.read)}
+                        style={btnSmall}
+                      >
+                        {l.read ? "Mark Unread" : "Mark Read"}
+                      </button>
+                      <button
+                        disabled={busyId === l._id}
+                        onClick={() => deleteLead(l._id)}
+                        style={btnDanger}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-                    <button
-                      disabled={busyId === lead._id}
-                      onClick={() => deleteLead(lead._id)}
-                      style={btnDanger}
-                    >
-                      {busyId === lead._id ? "…" : "Delete"}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* View Modal */}
-      {viewItem && (
-        <div
-          style={modalOuter}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setViewItem(null);
-          }}
-        >
-          <div style={modalBox}>
-            <h3 style={{ marginTop: 0 }}>Enquiry Details</h3>
-            <p>
-              <strong>Name:</strong> {viewItem.name}
-            </p>
-            <p>
-              <strong>Email:</strong> {viewItem.email}
-            </p>
-            <p>
-              <strong>Phone:</strong> {viewItem.phone}
-            </p>
-            <p>
-              <strong>Property:</strong> {viewItem.propertyTitle}
-            </p>
-            <p>
-              <strong>Message:</strong> {viewItem.message || "-"}
-            </p>
-
-            <div
-              style={{
-                marginTop: 12,
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-              }}
-            >
-              <button onClick={() => setViewItem(null)} style={btnCancel}>
-                Close
-              </button>
+        {viewItem && (
+          <div style={modalOuter} onClick={() => setViewItem(null)}>
+            <div style={modalBox} onClick={(e) => e.stopPropagation()}>
+              <h3>Enquiry Details</h3>
+              <p><b>Name:</b> {viewItem.name}</p>
+              <p><b>Email:</b> {viewItem.email}</p>
+              <p><b>Phone:</b> {viewItem.phone}</p>
+              <p><b>Property:</b> {viewItem.propertyTitle}</p>
+              <p><b>Message:</b> {viewItem.message || "-"}</p>
+              <div style={{ textAlign: "right", marginTop: 12 }}>
+                <button style={btnCancel} onClick={() => setViewItem(null)}>
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
 
-/* wrap with AdminGuard */
-export default function EnquiriesWithGuard(props) {
+export default function Guarded() {
   return (
     <AdminGuard>
-      <AdminEnquiriesPage {...props} />
+      <AdminEnquiriesPage />
     </AdminGuard>
   );
 }
 
-/* styles */
-const th = {
-  textAlign: "left",
-  padding: "10px 12px",
-  fontSize: 13,
-  color: "#374151",
+/* ===== STYLES ===== */
+const card = {
+  background: "#fff",
+  borderRadius: 12,
+  boxShadow: "0 6px 20px rgba(15,23,42,.06)",
+  overflowX: "auto",
 };
-const td = { padding: "10px 12px", fontSize: 14, color: "#111827" };
+const th = { textAlign: "left", padding: "12px 14px", fontSize: 13, color: "#475569" };
+const td = { padding: "12px 14px", fontSize: 14 };
+const empty = { padding: 24, textAlign: "center", color: "#64748b" };
 
-const btnSecondary = {
-  padding: "8px 12px",
-  background: "#f3f4f6",
-  color: "#111827",
-  border: "1px solid #e5e7eb",
-  borderRadius: 6,
-  cursor: "pointer",
-};
 const btnSmall = {
   padding: "6px 10px",
-  background: "#11294a",
+  background: "#1e3a8a",
   color: "#fff",
   borderRadius: 6,
   border: "none",
@@ -270,9 +204,8 @@ const btnDanger = {
   cursor: "pointer",
 };
 const btnCancel = {
-  padding: "6px 10px",
+  padding: "6px 12px",
   background: "#e5e7eb",
-  color: "#111827",
   borderRadius: 6,
   border: "none",
   cursor: "pointer",
@@ -286,7 +219,6 @@ const modalOuter = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 1200,
-  padding: 16,
 };
 const modalBox = {
   width: "min(600px, 98%)",
