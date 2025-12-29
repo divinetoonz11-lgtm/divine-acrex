@@ -1,7 +1,16 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../api/auth/[...nextauth]";
+
+/**
+ * NOTE:
+ * - authOptions ko top-level par import NAHI kiya gaya
+ * - Build time par MongoDB access avoid karne ke liye
+ * - authOptions ko runtime par dynamically import kiya gaya hai
+ */
 
 export async function getServerSideProps({ req, res }) {
+  // 🔑 authOptions ko runtime par load karo
+  const { authOptions } = await import("../api/auth/[...nextauth]");
+
   const session = await getServerSession(req, res, authOptions);
 
   // ❌ Login nahi hai
@@ -45,7 +54,7 @@ export async function getServerSideProps({ req, res }) {
   };
 }
 
-// 👇 Ye page kabhi render nahi hota
+// 👇 Ye page kabhi UI render nahi karta
 export default function Redirect() {
   return null;
 }
