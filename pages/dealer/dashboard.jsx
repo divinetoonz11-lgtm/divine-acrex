@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 
-/* ===== PAGES (AS IT IS) ===== */
+/* ===== EXISTING PAGES (NO CHANGE) ===== */
 import DealerInsights from "./insights";
 import DealerLeads from "./leads";
 import DealerReferral from "./referral";
@@ -23,39 +23,32 @@ export default function DealerDashboard() {
   const isMobile =
     typeof window !== "undefined" && window.innerWidth < 900;
 
-  /* ================= LOAD DATA (NO CHANGE) ================= */
+  /* ===== LOAD DASHBOARD ===== */
   useEffect(() => {
     if (!session?.user?.email) return;
-
     fetch("/api/dealer/dashboard")
       .then(r => r.json())
-      .then(d => d?.ok && setDashboard(d))
-      .catch(() => {});
+      .then(d => d?.ok && setDashboard(d));
   }, [session?.user?.email]);
 
+  /* ===== LOAD REFERRAL ===== */
   useEffect(() => {
     if (!session?.user?.email) return;
-
     fetch("/api/dealer/referral")
       .then(r => r.json())
-      .then(d => setReferralCode(d?.summary?.referralCode || ""))
-      .catch(() => {});
+      .then(d => setReferralCode(d?.summary?.referralCode || ""));
   }, [session?.user?.email]);
 
   if (status === "loading") return null;
 
-  if (!session?.user?.email || session.user.role !== "dealer") {
+  if (!session?.user || session.user.role !== "dealer") {
     if (typeof window !== "undefined") window.location.replace("/");
     return null;
   }
 
-  const safe = (a) =>
-    Array.isArray(a) && a.length ? a : [2, 4, 3, 5, 4];
-
-  /* ================= UI ================= */
   return (
     <div style={wrap}>
-      {/* ================= DESKTOP SIDEBAR (UNCHANGED) ================= */}
+      {/* ================= SIDEBAR ================= */}
       {!isMobile && (
         <aside style={sidebar}>
           <Profile session={session} onClick={() => setTab("profile")} />
@@ -78,33 +71,41 @@ export default function DealerDashboard() {
 
       {/* ================= MAIN ================= */}
       <main style={main}>
-        {/* ===== MOBILE TOP BAR (ONLY MOBILE) ===== */}
+        {/* MOBILE TOP */}
         {isMobile && (
           <div style={mobileTop}>
             <b>Dealer Dashboard</b>
-            <button style={dotsBtn} onClick={()=>setMobileMenu(true)}>⋮</button>
+            <button style={dotsBtn} onClick={()=>setMobileMenu(true)}>☰</button>
           </div>
         )}
 
-        {/* ===== OVERVIEW ===== */}
+        {/* ================= OVERVIEW ================= */}
         {tab === "overview" && (
           <>
-            {/* 8 KPI – CLICKABLE */}
+            {/* ===== PAGE TITLE ===== */}
+            <h2 style={pageTitle}>Dashboard</h2>
+
+            {/* ===== KPI GRID (6 = 3x2) ===== */}
             <div style={kpiGrid}>
               <Kpi title="Total Listings" value={dashboard?.totalListings||0} onClick={()=>setTab("properties")} />
               <Kpi title="Active Listings" value={dashboard?.activeListings||0} onClick={()=>setTab("properties")} />
-              <Kpi title="Active Leads" value={dashboard?.activeLeads||0} onClick={()=>setTab("leads")} />
               <Kpi title="Total Leads" value={dashboard?.totalLeads||0} onClick={()=>setTab("leads")} />
-              <Kpi title="Referral Income" value={`₹ ${dashboard?.referral?.totalIncome||0}`} onClick={()=>setTab("referral")} />
-              <Kpi title="Promotion Income" value={`₹ ${dashboard?.promotionIncome||0}`} />
-              <Kpi title="Subscription" value={dashboard?.subscription?.plan||"—"} onClick={()=>setTab("subscription")} />
+              <Kpi title="Active Leads" value={dashboard?.activeLeads||0} onClick={()=>setTab("leads")} />
+              <Kpi title="Subscription" value={dashboard?.subscription?.plan || "—"} onClick={()=>setTab("subscription")} />
               <Kpi title="Profile Status" value={dashboard?.profileCompleted?"Completed":"Pending"} onClick={()=>setTab("profile")} />
             </div>
 
-            {/* GRAPHS (UNCHANGED) */}
-            <Graph title="Listings Performance" data={safe(dashboard?.performance)} />
-            <Graph title="Referral Income" data={safe(dashboard?.referral?.monthly)} />
-            <Graph title="Lead Conversion" data={safe(dashboard?.leadConversion)} />
+            {/* ===== REFERRAL ===== */}
+            <ReferralBox code={referralCode} />
+
+            {/* ===== GRAPHS (DESKTOP ONLY) ===== */}
+            {!isMobile && (
+              <div style={graphGrid}>
+                <Graph title="Listings Performance" data={dashboard?.performance || [2,4,3,5]} />
+                <Graph title="Leads Conversion" data={dashboard?.leadConversion || [1,3,4,2]} />
+                <Graph title="Referral Growth" data={dashboard?.referral?.monthly || [0,1,2,3]} />
+              </div>
+            )}
           </>
         )}
 
@@ -116,26 +117,20 @@ export default function DealerDashboard() {
         {tab==="notifications" && <DealerNotifications />}
         {tab==="profile" && <DealerProfile />}
 
-        {/* ===== PROPERTIES (POST PROPERTY BACK ✔) ===== */}
+        {/* ===== PROPERTIES ===== */}
         {tab==="properties" && (
           <>
             <div style={subTabs}>
               <SubTab label="Post Property" active={propertyTab==="post"} onClick={()=>setPropertyTab("post")} />
               <SubTab label="My Properties" active={propertyTab==="my"} onClick={()=>setPropertyTab("my")} />
             </div>
-
-            {propertyTab==="post" && (
-              <a href="/post-property">
-                <button style={postBtn}>Open Post Property</button>
-              </a>
-            )}
-
+            {propertyTab==="post" && <a href="/post-property"><button style={postBtn}>Open Post Property</button></a>}
             {propertyTab==="my" && <DealerMyProperties />}
           </>
         )}
       </main>
 
-      {/* ================= MOBILE MENU (NO DATA LOST) ================= */}
+      {/* ================= MOBILE MENU ================= */}
       {isMobile && mobileMenu && (
         <div style={mobileOverlay} onClick={()=>setMobileMenu(false)}>
           <div style={mobileMenuBox} onClick={e=>e.stopPropagation()}>
@@ -153,33 +148,27 @@ export default function DealerDashboard() {
   );
 }
 
-/* ================= SMALL COMPONENTS ================= */
+/* ================= COMPONENTS ================= */
 
-const Profile = ({ session, onClick }) => (
-  <div style={profileBlock} onClick={onClick}>
-    <img src={session.user.image || "/images/avatar.png"} style={avatar} />
-    <div style={profileName}>{session.user.name}</div>
-    <div style={profileEmail}>{session.user.email}</div>
-  </div>
-);
+const ReferralBox = ({ code }) => {
+  if (!code) return null;
+  const text = `Join Divine Acres using my referral code: ${code}`;
 
-const Nav = ({ label, active, onClick }) => (
-  <div onClick={onClick} style={{
-    padding:10,borderRadius:10,marginBottom:6,
-    background:active?"#1e40af":"transparent",
-    color:active?"#fff":"#c7d2fe",fontWeight:700,cursor:"pointer"
-  }}>{label}</div>
-);
-
-const Kpi = ({ title, value, onClick }) => (
-  <div onClick={onClick} style={{
-    background:"#1e40af",color:"#fff",padding:16,
-    borderRadius:14,cursor:onClick?"pointer":"default"
-  }}>
-    <div style={{fontSize:12}}>{title}</div>
-    <div style={{fontSize:22,fontWeight:900}}>{value}</div>
-  </div>
-);
+  return (
+    <div style={refBox}>
+      <div>
+        <div style={refLabel}>Your Referral Code</div>
+        <div style={refCode}>{code}</div>
+        <button style={copyBtn} onClick={()=>navigator.clipboard.writeText(code)}>📋 Copy</button>
+      </div>
+      <div style={shareRow}>
+        <Share bg="#25D366" link={`https://wa.me/?text=${encodeURIComponent(text)}`}>WhatsApp</Share>
+        <Share bg="#1877F2" link={`https://facebook.com/sharer/sharer.php?quote=${encodeURIComponent(text)}`}>Facebook</Share>
+        <Share bg="#E1306C" link={`https://instagram.com/?caption=${encodeURIComponent(text)}`}>Instagram</Share>
+      </div>
+    </div>
+  );
+};
 
 const Graph = ({ title, data }) => {
   const max = Math.max(...data, 5);
@@ -198,20 +187,48 @@ const Graph = ({ title, data }) => {
   );
 };
 
+/* ================= SMALL ================= */
+
+const Profile = ({ session, onClick }) => (
+  <div style={profileBlock} onClick={onClick}>
+    <img src={session.user.image||"/images/avatar.png"} style={avatar}/>
+    <div style={profileName}>{session.user.name}</div>
+    <div style={profileEmail}>{session.user.email}</div>
+  </div>
+);
+
+const Nav = ({ label, active, onClick }) => (
+  <div onClick={onClick} style={{
+    padding:10,borderRadius:10,marginBottom:6,
+    background:active?"#1e40af":"transparent",
+    color:active?"#fff":"#c7d2fe",fontWeight:700,cursor:"pointer"
+  }}>{label}</div>
+);
+
+const Kpi = ({ title, value, onClick }) => (
+  <div onClick={onClick} style={kpi}>
+    <div style={{fontSize:12}}>{title}</div>
+    <div style={{fontSize:22,fontWeight:900}}>{value}</div>
+  </div>
+);
+
 const SubTab = ({ label, active, onClick }) => (
   <button onClick={onClick} style={{
     padding:"8px 16px",borderRadius:20,
     background:active?"#1e40af":"#e5edff",
-    color:active?"#fff":"#1e3a8a",
-    border:"none",fontWeight:700
+    color:active?"#fff":"#1e3a8a",border:"none",fontWeight:700
   }}>{label}</button>
+);
+
+const Share = ({ bg, link, children }) => (
+  <a href={link} target="_blank">
+    <button style={{...shareBtn,background:bg}}>{children}</button>
+  </a>
 );
 
 const MobileItem = ({ children, onClick, danger }) => (
   <div onClick={onClick} style={{
-    padding:14,fontWeight:700,
-    color:danger?"#dc2626":"#1e40af",
-    cursor:"pointer"
+    padding:14,fontWeight:700,color:danger?"#dc2626":"#1e40af"
   }}>{children}</div>
 );
 
@@ -221,6 +238,8 @@ const wrap={display:"flex",minHeight:"100vh",background:"#f1f5fb"};
 const sidebar={width:240,background:"#0a2a5e",color:"#fff",padding:16};
 const main={flex:1,padding:16};
 
+const pageTitle={margin:"0 0 12px",fontWeight:900};
+
 const profileBlock={textAlign:"center",marginBottom:20,cursor:"pointer"};
 const avatar={width:56,height:56,borderRadius:"50%"};
 const profileName={marginTop:6,fontWeight:800};
@@ -228,10 +247,19 @@ const profileEmail={fontSize:11,opacity:.8};
 
 const logout={marginTop:20,width:"100%",padding:10,background:"#ef4444",color:"#fff",border:"none",borderRadius:10};
 
-const kpiGrid={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12};
+const kpiGrid={display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12};
+const kpi={background:"#1e40af",color:"#fff",padding:16,borderRadius:14,cursor:"pointer"};
 
-const graphCard={background:"#fff",padding:16,borderRadius:14,marginTop:16};
-const barWrap={display:"flex",gap:18,alignItems:"flex-end",height:140};
+const refBox={background:"#fff",borderRadius:14,padding:14,marginTop:16,display:"flex",justifyContent:"space-between",gap:12,flexWrap:"wrap"};
+const refLabel={fontSize:12,color:"#64748b"};
+const refCode={fontSize:22,fontWeight:900,color:"#1e40af"};
+const copyBtn={marginTop:6,padding:"6px 12px",borderRadius:8,border:"1px solid #c7d2fe",background:"#eef2ff",fontWeight:700};
+const shareRow={display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"};
+const shareBtn={padding:"8px 14px",borderRadius:10,color:"#fff",fontWeight:800,border:"none"};
+
+const graphGrid={display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,marginTop:20};
+const graphCard={background:"#fff",padding:16,borderRadius:14};
+const barWrap={display:"flex",gap:16,alignItems:"flex-end",height:140};
 const barCol={textAlign:"center"};
 const bar={width:16,background:"#2563eb",borderRadius:6};
 const barLabel={fontSize:10};

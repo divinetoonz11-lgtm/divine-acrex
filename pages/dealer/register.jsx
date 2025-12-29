@@ -35,9 +35,6 @@ export default function DealerRegister() {
     dealerType: "",
     experience: "",
     referralCode: "",
-    username: "",
-    password: "",
-    confirmPassword: "",
     idProofType: "",
     addressProofType: "",
     agreed: false,
@@ -57,11 +54,8 @@ export default function DealerRegister() {
     e.preventDefault();
 
     if (!form.agreed) {
-      return alert("Please accept Terms & Conditions");
-    }
-
-    if (form.password && form.password !== form.confirmPassword) {
-      return alert("Password & Confirm Password do not match");
+      alert("Please accept Terms & Conditions");
+      return;
     }
 
     const fd = new FormData();
@@ -77,21 +71,20 @@ export default function DealerRegister() {
     setSubmitted(true);
   }
 
-  /* ================= SUCCESS ================= */
+  /* ================= SUCCESS SCREEN ================= */
 
   if (submitted) {
     return (
       <div style={wrap}>
-        <h2 style={title}>✅ Application Submitted</h2>
+        <h2 style={title}>✅ Dealer Application Submitted</h2>
 
         <div style={noteBox}>
-          ⏳ Dealer approval takes <b>24–48 business hours</b>.<br /><br />
-          📧 You will receive confirmation on your registered email.<br /><br />
-          🔐 After approval, login from <b>Dealer</b> tab using Google or
-          Username & Password.
+          ⏳ Dealer verification & admin approval takes <b>24–48 business hours</b>.<br /><br />
+          📧 Approval / rejection confirmation will be sent on your registered Gmail.<br /><br />
+          🔐 Dealer dashboard access will unlock after approval.
         </div>
 
-        <button style={smallBtn} onClick={() => router.replace("/user/dashboard")}>
+        <button style={btn} onClick={() => router.replace("/user/dashboard")}>
           Back to Dashboard
         </button>
       </div>
@@ -106,7 +99,14 @@ export default function DealerRegister() {
       <p style={sub}>International onboarding • India & UAE</p>
 
       <form onSubmit={handleSubmit} style={formBox}>
-        <input name="name" placeholder="Full Name" required onChange={handleChange} style={input} />
+        <input
+          name="name"
+          placeholder="Full Name"
+          required
+          onChange={handleChange}
+          style={input}
+        />
+
         <input value={session.user.email} disabled style={input} />
 
         <select name="country" value={form.country} onChange={handleChange} style={input}>
@@ -116,23 +116,45 @@ export default function DealerRegister() {
 
         <select name="state" value={form.state} onChange={handleChange} required style={input}>
           <option value="">Select State</option>
-          {STATES[form.country].map((s) => <option key={s}>{s}</option>)}
+          {STATES[form.country].map((s) => (
+            <option key={s}>{s}</option>
+          ))}
         </select>
 
         <select name="city" value={form.city} onChange={handleChange} required style={input}>
           <option value="">Select City</option>
-          {(CITIES[form.state] || []).map((c) => <option key={c}>{c}</option>)}
+          {(CITIES[form.state] || []).map((c) => (
+            <option key={c}>{c}</option>
+          ))}
         </select>
 
         <div style={{ display: "flex", gap: 8 }}>
-          <select name="countryCode" value={form.countryCode} onChange={handleChange} style={{ ...input, width: "35%" }}>
+          <select
+            name="countryCode"
+            value={form.countryCode}
+            onChange={handleChange}
+            style={{ ...input, width: "35%" }}
+          >
             <option value="+91">🇮🇳 +91</option>
             <option value="+971">🇦🇪 +971</option>
           </select>
-          <input name="mobile" placeholder="Mobile Number" required onChange={handleChange} style={input} />
+
+          <input
+            name="mobile"
+            placeholder="Mobile Number"
+            required
+            onChange={handleChange}
+            style={input}
+          />
         </div>
 
-        <input name="company" placeholder="Company / Firm Name" required onChange={handleChange} style={input} />
+        <input
+          name="company"
+          placeholder="Company / Firm Name"
+          required
+          onChange={handleChange}
+          style={input}
+        />
 
         <select name="dealerType" required onChange={handleChange} style={input}>
           <option value="">Dealer Type</option>
@@ -149,7 +171,38 @@ export default function DealerRegister() {
           <option>5+ Years</option>
         </select>
 
-        <input name="referralCode" placeholder="Referral Code (optional)" onChange={handleChange} style={input} />
+        <input
+          name="referralCode"
+          placeholder="Referral Code (optional)"
+          onChange={handleChange}
+          style={input}
+        />
+
+        <select name="idProofType" onChange={handleChange} style={input}>
+          <option value="">ID Proof</option>
+          <option>Aadhaar</option>
+          <option>Passport</option>
+          <option>Driving License</option>
+        </select>
+
+        <select name="addressProofType" onChange={handleChange} style={input}>
+          <option value="">Address Proof</option>
+          <option>Aadhaar</option>
+          <option>Passport</option>
+          <option>Utility Bill</option>
+        </select>
+
+        <input
+          type="file"
+          onChange={(e) => setDocumentFile(e.target.files[0])}
+          style={input}
+        />
+
+        {/* ===== NOTE (ABOVE TERMS & CONDITIONS) ===== */}
+        <div style={noteBox}>
+          ⏳ Dealer verification & approval usually takes <b>24–48 business hours</b>.<br />
+          📧 Approval confirmation will be sent on your registered Gmail.
+        </div>
 
         {/* ===== TERMS & CONDITIONS ===== */}
         <label style={agree}>
@@ -162,13 +215,8 @@ export default function DealerRegister() {
           </span>
         </label>
 
-        <div style={noteBox}>
-          ⏳ Approval takes 24–48 hours.  
-          📧 Email confirmation will be sent after approval.
-        </div>
-
-        <button type="submit" style={smallBtn}>
-          Submit Application
+        <button type="submit" style={btn}>
+          Submit Dealer Application
         </button>
       </form>
     </div>
@@ -178,15 +226,16 @@ export default function DealerRegister() {
 /* ================= STYLES ================= */
 
 const wrap = {
-  maxWidth: 720,
+  maxWidth: 760,
   margin: "auto",
-  padding: 20,
-  background: "linear-gradient(180deg,#f8fbff,#eaf1ff)",
+  padding: 24,
+  background: "linear-gradient(180deg,#f8fbff,#eef2ff)",
 };
 
 const title = { textAlign: "center", fontWeight: 900, color: "#0a2458" };
 const sub = { textAlign: "center", fontSize: 13, color: "#475569" };
-const formBox = { display: "flex", flexDirection: "column", gap: 10 };
+
+const formBox = { display: "flex", flexDirection: "column", gap: 12 };
 
 const input = {
   padding: 12,
@@ -195,12 +244,12 @@ const input = {
   fontSize: 14,
 };
 
-const agree = { fontSize: 13, display: "flex", gap: 8, marginTop: 10 };
+const agree = { fontSize: 13, display: "flex", gap: 8 };
 
-const smallBtn = {
-  marginTop: 12,
-  padding: "12px 22px",
-  borderRadius: 12,
+const btn = {
+  marginTop: 14,
+  padding: "14px",
+  borderRadius: 14,
   background: "#2563eb",
   color: "#fff",
   fontWeight: 800,
@@ -208,7 +257,6 @@ const smallBtn = {
 };
 
 const noteBox = {
-  marginTop: 12,
   padding: 14,
   background: "#eef2ff",
   borderRadius: 14,

@@ -1,0 +1,87 @@
+.dealerWrap {
+  max-width: 860px;
+  margin: 40px auto;
+  background: linear-gradient(180deg,#f8fbff,#eef3ff);
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+}
+
+.dealerTitle {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: #0a2458;
+}
+
+.dealerSub {
+  text-align: center;
+  font-size: 14px;
+  color: #475569;
+  margin-bottom: 20px;
+}
+
+.dealerForm {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 14px;
+}
+
+.dealerInput,
+.dealerSelect {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid #c7d2fe;
+  font-size: 14px;
+  background: #fff;
+}
+
+.dealerInput:focus,
+.dealerSelect:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+
+.mobileRow {
+  display: flex;
+  gap: 10px;
+}
+
+.dealerCheck {
+  grid-column: 1/-1;
+  display: flex;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.dealerCheck a {
+  color: #1e40af;
+  font-weight: 700;
+}
+
+.dealerNote {
+  grid-column: 1/-1;
+  background: #eef2ff;
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+
+.dealerSubmit {
+  grid-column: 1/-1;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(90deg,#2563eb,#1e40af);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .dealerForm {
+    grid-template-columns: 1fr;
+  }
+}
