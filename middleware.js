@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 /*
-FINAL PRODUCTION MIDDLEWARE
-✔ /dealer/register FULLY PUBLIC
-✔ Admin fully protected (role + email)
-✔ Dealer dashboard protected
-✔ User dashboard protected
-✔ Direct admin URL typing blocked safely
+FINAL ULTRA STRICT MIDDLEWARE
+----------------------------
+✔ Admin dashboard → ONLY 2 fixed emails
+✔ Sub-admin → separate, limited
+✔ User / Dealer / Sub-admin → admin NEVER
+✔ DM / copied admin link useless
 */
 
 const ADMIN_EMAILS = [
@@ -20,7 +20,7 @@ export async function middleware(req) {
   const { pathname } = req.nextUrl;
 
   /* =========================
-     1️⃣ PUBLIC ROUTES (NO AUTH)
+     1️⃣ PUBLIC ROUTES
   ========================= */
   if (
     pathname === "/" ||
@@ -38,22 +38,32 @@ export async function middleware(req) {
   }
 
   /* =========================
-     2️⃣ TOKEN CHECK
+     2️⃣ TOKEN REQUIRED
   ========================= */
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
   });
 
-  /* =========================
-     3️⃣ NOT LOGGED IN → LOGIN
-  ========================= */
-  if (!token) {
+  if (!token || !token.email || !token.role) {
     return NextResponse.redirect(new URL("/admin_login", req.url));
   }
 
+  /* =================================================
+     🚫 GLOBAL ADMIN EMAIL LOCK
+     -------------------------------------------------
+     Admin email hai but role ≠ admin
+     → koi bhi dashboard allow nahi
+  ================================================= */
+  if (
+    ADMIN_EMAILS.includes(token.email) &&
+    token.role !== "admin"
+  ) {
+    return NextResponse.redirect(new URL("/wrong-access", req.url));
+  }
+
   /* =========================
-     4️⃣ ADMIN AREA (STRICT)
+     3️⃣ ADMIN DASHBOARD (HARDEST LOCK)
   ========================= */
   if (pathname.startsWith("/admin")) {
     if (
@@ -62,15 +72,27 @@ export async function middleware(req) {
     ) {
       return NextResponse.redirect(new URL("/wrong-access", req.url));
     }
+    return NextResponse.next();
+  }
+
+  /* =========================
+     4️⃣ SUB-ADMIN DASHBOARD
+  ========================= */
+  if (pathname.startsWith("/sub-admin")) {
+    if (token.role !== "sub-admin") {
+      return NextResponse.redirect(new URL("/wrong-access", req.url));
+    }
+    return NextResponse.next();
   }
 
   /* =========================
      5️⃣ DEALER DASHBOARD
   ========================= */
-  if (pathname.startsWith("/dealer") && pathname !== "/dealer/register") {
+  if (pathname.startsWith("/dealer")) {
     if (token.role !== "dealer") {
       return NextResponse.redirect(new URL("/wrong-access", req.url));
     }
+    return NextResponse.next();
   }
 
   /* =========================
@@ -80,11 +102,17 @@ export async function middleware(req) {
     if (token.role !== "user") {
       return NextResponse.redirect(new URL("/wrong-access", req.url));
     }
+    return NextResponse.next();
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/dealer/:path*", "/user/:path*"],
+  matcher: [
+    "/admin/:path*",
+    "/sub-admin/:path*",
+    "/dealer/:path*",
+    "/user/:path*",
+  ],
 };
