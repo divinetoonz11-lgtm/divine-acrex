@@ -88,7 +88,6 @@ export default function DealerRegister() {
   const [documentFile, setDocumentFile] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
-  /* ================= LOGIN REQUIRED ================= */
   if (status === "loading") return null;
   if (status !== "authenticated") return null;
 
@@ -119,18 +118,14 @@ export default function DealerRegister() {
     setSubmitted(true);
   }
 
-  /* ================= SUCCESS SCREEN ================= */
-
   if (submitted) {
     return (
       <div style={wrap}>
         <h2 style={title}>✅ Dealer Application Submitted</h2>
 
         <div style={noteBox}>
-          ⏳ Verification & admin approval takes <b>24–48 business hours</b>.
-          <br /><br />
-          📧 Confirmation will be sent to your registered Gmail.
-          <br /><br />
+          ⏳ Verification & admin approval takes <b>24–48 business hours</b>.<br /><br />
+          📧 Confirmation will be sent to your registered Gmail.<br /><br />
           🔐 Dealer dashboard unlocks after approval.
         </div>
 
@@ -140,8 +135,6 @@ export default function DealerRegister() {
       </div>
     );
   }
-
-  /* ================= FORM ================= */
 
   return (
     <div style={wrap}>
@@ -216,8 +209,7 @@ export default function DealerRegister() {
         <input type="file" onChange={(e) => setDocumentFile(e.target.files[0])} style={input} />
 
         <div style={noteBox}>
-          ⏳ Approval usually takes <b>24–48 business hours</b>.
-          <br />
+          ⏳ Approval usually takes <b>24–48 business hours</b>.<br />
           📧 Email confirmation will be sent.
         </div>
 
