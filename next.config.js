@@ -6,8 +6,12 @@ const nextConfig = {
   // ❌ Remove X-Powered-By header (security)
   poweredByHeader: false,
 
+  // ✅ IMPORTANT: PostCSS / CSS Modules crash fix (Vercel)
+  experimental: {
+    optimizeCss: false,
+  },
+
   // ✅ FORCE non-www → www (Google OAuth LIVE fix)
-  // ⚠️ Auth / Role / DB logic par koi effect nahi
   async redirects() {
     return [
       {
@@ -24,10 +28,9 @@ const nextConfig = {
     ];
   },
 
+  // ✅ Server-side externals (Mongo safe)
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // ✅ Mongo related externals allowed
-      // ❌ Prisma / Auth / Role logic untouched
       config.externals.push({
         mongoose: "commonjs mongoose",
         mongodb: "commonjs mongodb",
