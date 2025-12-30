@@ -47,7 +47,26 @@ export default function Header() {
                 <li><Link className={styles.navLink} href="/for-tenants">For Tenants</Link></li>
                 <li><Link className={styles.navLink} href="/for-owners">For Owners</Link></li>
                 <li><Link className={styles.navLink} href="/for-dealers">For Dealers / Builders</Link></li>
-                <li><Link className={styles.navLink} href="/dealer/register">Become a Dealer</Link></li>
+
+                {/* ✅ ONLY FIXED LINE (browser-safe) */}
+                <li>
+                  <button
+                    className={styles.navLink}
+                    onClick={() => {
+                      window.location.href = "/dealer/register";
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      font: "inherit",
+                    }}
+                  >
+                    Become a Dealer
+                  </button>
+                </li>
+
                 <li><Link className={styles.navLink} href="/insights">Insights</Link></li>
                 <li>
                   <a
