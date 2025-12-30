@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 /* ================= LOCATION DATA ================= */
 
 const STATES = {
-  "India": [
+  India: [
     "Delhi",
     "Maharashtra",
     "Uttar Pradesh",
@@ -18,54 +18,16 @@ const STATES = {
     "Punjab",
     "West Bengal",
     "Kerala",
-    "Telangana"
+    "Telangana",
   ],
-  "UAE": [
-    "Dubai",
-    "Abu Dhabi",
-    "Sharjah",
-    "Ajman"
-  ]
+  UAE: ["Dubai", "Abu Dhabi", "Sharjah", "Ajman"],
 };
 
-const CITIES = {
-  "Delhi": ["New Delhi"],
-
-  "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik"],
-
-  "Uttar Pradesh": [
-    "Noida",
-    "Greater Noida",
-    "Lucknow",
-    "Kanpur",
-    "Agra",
-    "Varanasi"
-  ],
-
-  "Haryana": ["Gurgaon", "Faridabad", "Panipat"],
-
-  "Karnataka": ["Bengaluru", "Mysuru", "Hubli"],
-
-  "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai"],
-
-  "Madhya Pradesh": ["Indore", "Bhopal", "Gwalior"],
-
-  "Rajasthan": ["Jaipur", "Udaipur", "Jodhpur"],
-
-  "Gujarat": ["Ahmedabad", "Surat", "Vadodara"],
-
-  "Punjab": ["Ludhiana", "Amritsar", "Jalandhar"],
-
-  "West Bengal": ["Kolkata", "Howrah", "Durgapur"],
-
-  "Kerala": ["Kochi", "Trivandrum", "Kozhikode"],
-
-  "Telangana": ["Hyderabad", "Warangal"],
-
-  "Dubai": ["Dubai"],
+const UAE_CITIES = {
+  Dubai: ["Dubai"],
   "Abu Dhabi": ["Abu Dhabi", "Al Ain"],
-  "Sharjah": ["Sharjah"],
-  "Ajman": ["Ajman"]
+  Sharjah: ["Sharjah"],
+  Ajman: ["Ajman"],
 };
 
 export default function DealerRegister() {
@@ -77,6 +39,8 @@ export default function DealerRegister() {
     country: "India",
     state: "",
     city: "",
+    address: "",
+    pincode: "",
     countryCode: "+91",
     mobile: "",
     company: "",
@@ -91,7 +55,6 @@ export default function DealerRegister() {
   const [documentFile, setDocumentFile] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
-  // 🔐 Login required (as per your flow)
   if (status !== "authenticated") return null;
 
   function handleChange(e) {
@@ -107,16 +70,15 @@ export default function DealerRegister() {
       return;
     }
 
+    if (form.country === "India" && !form.pincode) {
+      alert("PIN Code is required for India");
+      return;
+    }
+
     const fd = new FormData();
     fd.append("email", session.user.email);
-
-    Object.keys(form).forEach((k) => {
-      fd.append(k, form[k]);
-    });
-
-    if (documentFile) {
-      fd.append("document", documentFile);
-    }
+    Object.keys(form).forEach((k) => fd.append(k, form[k]));
+    if (documentFile) fd.append("document", documentFile);
 
     await fetch("/api/dealer/request", {
       method: "POST",
@@ -126,21 +88,14 @@ export default function DealerRegister() {
     setSubmitted(true);
   }
 
-  /* ================= SUCCESS SCREEN ================= */
-
   if (submitted) {
     return (
       <div style={wrap}>
         <h2 style={title}>✅ Dealer Application Submitted</h2>
-
         <div style={noteBox}>
-          ⏳ Dealer verification & admin approval takes <b>24–48 business hours</b>.
-          <br /><br />
-          📧 Approval / rejection mail will be sent to your registered Gmail.
-          <br /><br />
-          🔐 Dealer dashboard access unlocks only after approval.
+          ⏳ Verification takes <b>24–48 business hours</b>.<br />
+          📧 Confirmation will be sent to your Gmail.
         </div>
-
         <button style={btn} onClick={() => router.replace("/user/dashboard")}>
           Back to Dashboard
         </button>
@@ -148,22 +103,13 @@ export default function DealerRegister() {
     );
   }
 
-  /* ================= FORM ================= */
-
   return (
     <div style={wrap}>
       <h2 style={title}>Become a Dealer</h2>
-      <p style={sub}>International onboarding • India & UAE</p>
+      <p style={sub}>India & UAE onboarding</p>
 
       <form onSubmit={handleSubmit} style={formBox}>
-        <input
-          name="name"
-          placeholder="Full Name"
-          required
-          onChange={handleChange}
-          style={input}
-        />
-
+        <input name="name" placeholder="Full Name" required onChange={handleChange} style={input} />
         <input value={session.user.email} disabled style={input} />
 
         <select name="country" value={form.country} onChange={handleChange} style={input}>
@@ -178,24 +124,50 @@ export default function DealerRegister() {
           ))}
         </select>
 
-        <select name="city" value={form.city} onChange={handleChange} required style={input}>
-          <option value="">Select City</option>
-          {(CITIES[form.state] || []).map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <select
-            name="countryCode"
-            value={form.countryCode}
+        {/* CITY LOGIC */}
+        {form.country === "India" ? (
+          <input
+            name="city"
+            placeholder="City"
+            required
             onChange={handleChange}
-            style={{ ...input, width: "35%" }}
-          >
+            style={input}
+          />
+        ) : (
+          <select name="city" value={form.city} onChange={handleChange} required style={input}>
+            <option value="">Select City</option>
+            {(UAE_CITIES[form.state] || []).map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
+
+        {/* ADDRESS */}
+        <textarea
+          name="address"
+          placeholder="Complete Address"
+          required
+          onChange={handleChange}
+          style={{ ...input, height: 80 }}
+        />
+
+        {/* PINCODE – INDIA ONLY */}
+        {form.country === "India" && (
+          <input
+            name="pincode"
+            placeholder="PIN Code"
+            required
+            onChange={handleChange}
+            style={input}
+          />
+        )}
+
+        {/* MOBILE */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <select name="countryCode" value={form.countryCode} onChange={handleChange} style={{ ...input, width: "35%" }}>
             <option value="+91">🇮🇳 +91</option>
             <option value="+971">🇦🇪 +971</option>
           </select>
-
           <input
             name="mobile"
             placeholder="Mobile Number"
@@ -205,13 +177,7 @@ export default function DealerRegister() {
           />
         </div>
 
-        <input
-          name="company"
-          placeholder="Company / Firm Name"
-          required
-          onChange={handleChange}
-          style={input}
-        />
+        <input name="company" placeholder="Company / Firm Name" required onChange={handleChange} style={input} />
 
         <select name="dealerType" required onChange={handleChange} style={input}>
           <option value="">Dealer Type</option>
@@ -220,60 +186,16 @@ export default function DealerRegister() {
           <option value="Builder">Builder</option>
         </select>
 
-        <select name="experience" onChange={handleChange} style={input}>
-          <option value="">Experience</option>
-          <option value="0–1 Years">0–1 Years</option>
-          <option value="1–3 Years">1–3 Years</option>
-          <option value="3–5 Years">3–5 Years</option>
-          <option value="5+ Years">5+ Years</option>
-        </select>
-
-        <input
-          name="referralCode"
-          placeholder="Referral Code (optional)"
-          onChange={handleChange}
-          style={input}
-        />
-
-        <select name="idProofType" onChange={handleChange} style={input}>
-          <option value="">ID Proof</option>
-          <option value="Aadhaar">Aadhaar</option>
-          <option value="Passport">Passport</option>
-          <option value="Driving License">Driving License</option>
-        </select>
-
-        <select name="addressProofType" onChange={handleChange} style={input}>
-          <option value="">Address Proof</option>
-          <option value="Aadhaar">Aadhaar</option>
-          <option value="Passport">Passport</option>
-          <option value="Utility Bill">Utility Bill</option>
-        </select>
-
-        <input
-          type="file"
-          onChange={(e) => setDocumentFile(e.target.files[0])}
-          style={input}
-        />
-
-        <div style={noteBox}>
-          ⏳ Dealer approval usually takes <b>24–48 business hours</b>.
-          <br />
-          📧 Confirmation will be sent on registered Gmail.
-        </div>
+        <input type="file" onChange={(e) => setDocumentFile(e.target.files[0])} style={input} />
 
         <label style={agree}>
           <input type="checkbox" name="agreed" onChange={handleChange} />
           <span>
-            I agree to the{" "}
-            <a href="/terms" target="_blank" style={{ color: "#1e40af", fontWeight: 700 }}>
-              Terms & Conditions
-            </a>
+            I agree to <a href="/terms" target="_blank" style={{ fontWeight: 700 }}>Terms & Conditions</a>
           </span>
         </label>
 
-        <button type="submit" style={btn}>
-          Submit Dealer Application
-        </button>
+        <button type="submit" style={btn}>Submit Dealer Application</button>
       </form>
     </div>
   );
@@ -281,40 +203,11 @@ export default function DealerRegister() {
 
 /* ================= STYLES ================= */
 
-const wrap = {
-  maxWidth: 760,
-  margin: "auto",
-  padding: 24,
-  background: "linear-gradient(180deg,#f8fbff,#eef2ff)",
-};
-
-const title = { textAlign: "center", fontWeight: 900, color: "#0a2458" };
-const sub = { textAlign: "center", fontSize: 13, color: "#475569" };
-
+const wrap = { maxWidth: 760, margin: "auto", padding: 24, background: "#f8fbff" };
+const title = { textAlign: "center", fontWeight: 900 };
+const sub = { textAlign: "center", fontSize: 13 };
 const formBox = { display: "flex", flexDirection: "column", gap: 12 };
-
-const input = {
-  padding: 12,
-  borderRadius: 12,
-  border: "1px solid #c7d2fe",
-  fontSize: 14,
-};
-
+const input = { padding: 12, borderRadius: 12, border: "1px solid #c7d2fe" };
 const agree = { fontSize: 13, display: "flex", gap: 8 };
-
-const btn = {
-  marginTop: 14,
-  padding: "14px",
-  borderRadius: 14,
-  background: "#2563eb",
-  color: "#fff",
-  fontWeight: 800,
-  border: "none",
-};
-
-const noteBox = {
-  padding: 14,
-  background: "#eef2ff",
-  borderRadius: 14,
-  fontSize: 13,
-};
+const btn = { padding: 14, borderRadius: 14, background: "#2563eb", color: "#fff", fontWeight: 800, border: "none" };
+const noteBox = { padding: 14, background: "#eef2ff", borderRadius: 14 };
