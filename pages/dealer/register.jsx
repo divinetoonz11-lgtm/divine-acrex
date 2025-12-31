@@ -1,42 +1,31 @@
 // pages/dealer/register.jsx
 import { useState } from "react";
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 
 /* ================= LOCATION DATA ================= */
 
 const STATES = {
   India: [
-    "Delhi",
-    "Maharashtra",
-    "Uttar Pradesh",
-    "Haryana",
-    "Karnataka",
-    "Tamil Nadu",
-    "Madhya Pradesh",
-    "Rajasthan",
-    "Gujarat",
-    "Punjab",
-    "West Bengal",
-    "Kerala",
-    "Telangana",
+    "Delhi","Maharashtra","Uttar Pradesh","Haryana","Karnataka",
+    "Tamil Nadu","Madhya Pradesh","Rajasthan","Gujarat","Punjab",
+    "West Bengal","Kerala","Telangana",
   ],
-  UAE: ["Dubai", "Abu Dhabi", "Sharjah", "Ajman"],
+  UAE: ["Dubai","Abu Dhabi","Sharjah","Ajman"],
 };
 
 const UAE_CITIES = {
   Dubai: ["Dubai"],
-  "Abu Dhabi": ["Abu Dhabi", "Al Ain"],
+  "Abu Dhabi": ["Abu Dhabi","Al Ain"],
   Sharjah: ["Sharjah"],
   Ajman: ["Ajman"],
 };
 
 export default function DealerRegister() {
-  const { data: session, status } = useSession();
   const router = useRouter();
 
   const [form, setForm] = useState({
     name: "",
+    email: "",
     country: "India",
     state: "",
     city: "",
@@ -52,10 +41,9 @@ export default function DealerRegister() {
     agreed: false,
   });
 
-  const [documentFile, setDocumentFile] = useState(null);
+  const [idProofFile, setIdProofFile] = useState(null);
+  const [addressProofFile, setAddressProofFile] = useState(null);
   const [submitted, setSubmitted] = useState(false);
-
-  if (status !== "authenticated") return null;
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
@@ -65,35 +53,30 @@ export default function DealerRegister() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!form.agreed) {
-      alert("Please accept Terms & Conditions");
-      return;
-    }
+    if (!form.agreed) return alert("Please accept Terms & Conditions");
+    if (!form.email) return alert("Email is required");
+    if (form.country === "India" && !form.pincode)
+      return alert("PIN Code is required for India");
 
-    if (form.country === "India" && !form.pincode) {
-      alert("PIN Code is required for India");
-      return;
-    }
-
-    if (!documentFile) {
-      alert("Please upload ID / Address Proof document");
-      return;
-    }
-
-    const fd = new FormData();
-    fd.append("email", session.user.email);
-    Object.keys(form).forEach((k) => fd.append(k, form[k]));
-    fd.append("document", documentFile);
-
-    await fetch("/api/dealer/request", {
+    // 🔴 IMPORTANT FIX: JSON SEND (backend compatible)
+    const res = await fetch("/api/dealer/request", {
       method: "POST",
-      body: fd,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
     });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(err.message || "Submission failed. Please try again later.");
+      return;
+    }
 
     setSubmitted(true);
   }
 
-  /* ================= SUCCESS SCREEN ================= */
+  /* ================= SUCCESS ================= */
 
   if (submitted) {
     return (
@@ -101,21 +84,23 @@ export default function DealerRegister() {
         <h2 style={title}>✅ Dealer Application Submitted</h2>
 
         <div style={noteBox}>
-          ⏳ Dealer verification & admin approval usually takes{" "}
+          ⏳ <b>Verification & admin approval</b> usually takes{" "}
           <b>24–48 business hours</b>.<br /><br />
 
-          📧 Approval / rejection confirmation will be sent to your registered
-          Gmail ID.<br /><br />
+          📧 Status update will be sent to your registered email.<br /><br />
 
-          🔐 After approval, your <b>Dealer Dashboard</b> will be activated
-          automatically.<br />
-          You can login using your registered email.<br /><br />
+          🔐 After approval, you will receive an email to
+          <b> set your username & password</b>.<br /><br />
 
-          💡 For best experience, please use <b>Google Chrome</b>.
+          📞 Need help? Contact us anytime:
+          <br />
+          📧 <b>divinetoonz11@gmail.com</b>
+          <br />
+          📱 <b>9867402515</b>
         </div>
 
-        <button style={btn} onClick={() => router.replace("/user/dashboard")}>
-          Back to Dashboard
+        <button style={btn} onClick={() => router.replace("/")}>
+          Go to Home
         </button>
       </div>
     );
@@ -128,51 +113,26 @@ export default function DealerRegister() {
       <h2 style={title}>Become a Dealer</h2>
       <p style={sub}>India & UAE onboarding</p>
 
-      {/* ===== IMPORTANT NOTES (VISIBLE BEFORE SUBMIT) ===== */}
       <div style={noteBox}>
-        ⏳ <b>Dealer verification & admin approval</b> takes{" "}
-        <b>24–48 business hours</b>.<br /><br />
-
-        🆔 <b>ID Proof / Address Proof</b> accepted:
-        Aadhaar, Passport, Driving License, Utility Bill.<br /><br />
-
-        📧 Status update will be sent on your registered Gmail.<br /><br />
-
-        💡 Recommended browser: <b>Google Chrome</b>.<br /><br />
-
-        ⚠️ If you face any issue during submission, contact:<br />
-        📩 <b>divinetoonz11@gmail.com</b><br />
-        📱 WhatsApp: <b>+91 9867402515</b>
+        <b>Important Information:</b><br /><br />
+        1️⃣ This is a <b>dealer request form</b>. Submission does not guarantee approval.<br /><br />
+        2️⃣ <b>Admin verification</b> takes 24–48 working hours.<br /><br />
+        3️⃣ Username & password will be created <b>only after approval</b> via email.<br /><br />
+        4️⃣ If you face any problem during submission, contact us directly:<br />
+        📧 <b>divinetoonz11@gmail.com</b><br />
+        📱 <b>9867402515</b>
       </div>
 
       <form onSubmit={handleSubmit} style={formBox}>
-        <input
-          name="name"
-          placeholder="Full Name"
-          required
-          onChange={handleChange}
-          style={input}
-        />
+        <input name="name" placeholder="Full Name" required onChange={handleChange} style={input} />
+        <input name="email" placeholder="Email (Gmail preferred)" required onChange={handleChange} style={input} />
 
-        <input value={session.user.email} disabled style={input} />
-
-        <select
-          name="country"
-          value={form.country}
-          onChange={handleChange}
-          style={input}
-        >
+        <select name="country" value={form.country} onChange={handleChange} style={input}>
           <option value="India">India</option>
           <option value="UAE">United Arab Emirates</option>
         </select>
 
-        <select
-          name="state"
-          value={form.state}
-          onChange={handleChange}
-          required
-          style={input}
-        >
+        <select name="state" value={form.state} onChange={handleChange} required style={input}>
           <option value="">Select State</option>
           {STATES[form.country].map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -180,21 +140,9 @@ export default function DealerRegister() {
         </select>
 
         {form.country === "India" ? (
-          <input
-            name="city"
-            placeholder="City"
-            required
-            onChange={handleChange}
-            style={input}
-          />
+          <input name="city" placeholder="City" required onChange={handleChange} style={input} />
         ) : (
-          <select
-            name="city"
-            value={form.city}
-            onChange={handleChange}
-            required
-            style={input}
-          >
+          <select name="city" value={form.city} onChange={handleChange} required style={input}>
             <option value="">Select City</option>
             {(UAE_CITIES[form.state] || []).map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -211,92 +159,38 @@ export default function DealerRegister() {
         />
 
         {form.country === "India" && (
-          <input
-            name="pincode"
-            placeholder="PIN Code"
-            required
-            onChange={handleChange}
-            style={input}
-          />
+          <input name="pincode" placeholder="PIN Code" required onChange={handleChange} style={input} />
         )}
 
-        <div style={{ display: "flex", gap: 8 }}>
-          <select
-            name="countryCode"
-            value={form.countryCode}
-            onChange={handleChange}
-            style={{ ...input, width: "35%" }}
-          >
-            <option value="+91">🇮🇳 +91</option>
-            <option value="+971">🇦🇪 +971</option>
-          </select>
+        <input name="mobile" placeholder="Mobile Number" required onChange={handleChange} style={input} />
+        <input name="company" placeholder="Company / Firm Name" required onChange={handleChange} style={input} />
 
-          <input
-            name="mobile"
-            placeholder="Mobile Number"
-            required
-            onChange={handleChange}
-            style={input}
-          />
-        </div>
-
-        <input
-          name="company"
-          placeholder="Company / Firm Name"
-          required
-          onChange={handleChange}
-          style={input}
-        />
-
-        <select
-          name="dealerType"
-          required
-          onChange={handleChange}
-          style={input}
-        >
+        <select name="dealerType" required onChange={handleChange} style={input}>
           <option value="">Dealer Type</option>
           <option value="Individual">Individual</option>
           <option value="Agency">Agency</option>
           <option value="Builder">Builder</option>
         </select>
 
-        <input
-          name="referralCode"
-          placeholder="Referral Code (optional)"
-          onChange={handleChange}
-          style={input}
-        />
+        <input name="referralCode" placeholder="Referral Code (optional)" onChange={handleChange} style={input} />
 
-        <select
-          name="idProofType"
-          required
-          onChange={handleChange}
-          style={input}
-        >
-          <option value="">Select ID Proof</option>
+        <select name="idProofType" onChange={handleChange} style={input}>
+          <option value="">Select ID Proof (optional)</option>
           <option value="Aadhaar">Aadhaar</option>
           <option value="Passport">Passport</option>
           <option value="Driving License">Driving License</option>
         </select>
 
-        <select
-          name="addressProofType"
-          required
-          onChange={handleChange}
-          style={input}
-        >
-          <option value="">Select Address Proof</option>
+        <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setIdProofFile(e.target.files[0])} style={input} />
+
+        <select name="addressProofType" onChange={handleChange} style={input}>
+          <option value="">Select Address Proof (optional)</option>
           <option value="Aadhaar">Aadhaar</option>
           <option value="Passport">Passport</option>
           <option value="Utility Bill">Utility Bill</option>
         </select>
 
-        <input
-          type="file"
-          accept=".jpg,.jpeg,.png,.pdf"
-          onChange={(e) => setDocumentFile(e.target.files[0])}
-          style={input}
-        />
+        <input type="file" accept=".jpg,.jpeg,.png,.pdf" onChange={(e) => setAddressProofFile(e.target.files[0])} style={input} />
 
         <label style={agree}>
           <input type="checkbox" name="agreed" onChange={handleChange} />
@@ -316,42 +210,11 @@ export default function DealerRegister() {
 
 /* ================= STYLES ================= */
 
-const wrap = {
-  maxWidth: 760,
-  margin: "auto",
-  padding: 24,
-  background: "#f8fbff",
-};
-
+const wrap = { maxWidth: 760, margin: "auto", padding: 24, background: "#f8fbff" };
 const title = { textAlign: "center", fontWeight: 900 };
 const sub = { textAlign: "center", fontSize: 13 };
-
-const formBox = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-};
-
-const input = {
-  padding: 12,
-  borderRadius: 12,
-  border: "1px solid #c7d2fe",
-};
-
+const formBox = { display: "flex", flexDirection: "column", gap: 12 };
+const input = { padding: 12, borderRadius: 12, border: "1px solid #c7d2fe" };
 const agree = { fontSize: 13, display: "flex", gap: 8 };
-
-const btn = {
-  padding: 14,
-  borderRadius: 14,
-  background: "#2563eb",
-  color: "#fff",
-  fontWeight: 800,
-  border: "none",
-};
-
-const noteBox = {
-  padding: 14,
-  background: "#eef2ff",
-  borderRadius: 14,
-  fontSize: 13,
-};
+const btn = { padding: 14, borderRadius: 14, background: "#2563eb", color: "#fff", fontWeight: 800, border: "none" };
+const noteBox = { padding: 14, background: "#eef2ff", borderRadius: 14, fontSize: 13 };

@@ -1,87 +1,103 @@
-﻿import dbConnect from "../../../../utils/dbConnect";
-import Dealer from "../../../../models/Dealer";
-import User from "../../../../models/User";
+﻿import crypto from "crypto";
+import { ObjectId } from "mongodb";
+import { getServerSession } from "next-auth/next";
+import clientPromise from "../../../../lib/mongodb";
 import { sendMail } from "../../../../lib/mailer";
+import { authOptions } from "../../auth/[...nextauth]";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({
-      success: false,
-      message: "Method not allowed",
-    });
-  }
-
-  const { dealerId } = req.body;
-
-  if (!dealerId) {
-    return res.status(400).json({
-      success: false,
-      message: "Dealer ID required",
-    });
+    return res.status(405).json({ ok: false, message: "Method not allowed" });
   }
 
   try {
-    await dbConnect();
+    /* 🔐 ADMIN CHECK */
+    const session = await getServerSession(req, res, authOptions);
+    if (!session || session.user?.role !== "admin") {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
 
-    /* =========================
-       1️⃣ APPROVE DEALER RECORD
-    ========================= */
-    const dealer = await Dealer.findByIdAndUpdate(
-      dealerId,
-      { verifyStatus: "approved" },
-      { new: true }
-    );
+    const { requestId } = req.body;
+    if (!requestId) {
+      return res.status(400).json({ ok: false, message: "requestId required" });
+    }
 
-    if (!dealer) {
+    const client = await clientPromise;
+    const db = client.db();
+
+    const dealerRequests = db.collection("dealer_requests");
+    const users = db.collection("users");
+
+    /* ✅ FIX: ObjectId conversion */
+    const _id = new ObjectId(requestId);
+
+    /* 📥 FETCH REQUEST */
+    const reqDoc = await dealerRequests.findOne({
+      _id,
+      status: "pending",
+    });
+
+    if (!reqDoc) {
       return res.status(404).json({
-        success: false,
-        message: "Dealer not found",
+        ok: false,
+        message: "Pending dealer request not found",
       });
     }
 
-    /* =========================
-       2️⃣ UPDATE USER ROLE → DEALER
-    ========================= */
-    await User.updateOne(
-      { email: dealer.email },
-      { $set: { role: "dealer" } }
+    /* 🔑 TOKEN */
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    /* ✅ UPDATE REQUEST */
+    await dealerRequests.updateOne(
+      { _id },
+      {
+        $set: {
+          status: "approved",
+          approvedBy: session.user.email,
+          approvedAt: new Date(),
+        },
+      }
     );
 
-    /* =========================
-       3️⃣ SEND APPROVAL EMAIL
-    ========================= */
+    /* 👤 CREATE / UPDATE USER */
+    await users.updateOne(
+      { email: reqDoc.email },
+      {
+        $set: {
+          name: reqDoc.name,
+          email: reqDoc.email,
+          role: "dealer",
+          passwordSet: false,
+          setupToken: tokenHash,
+          setupTokenExpires: tokenExpiry,
+        },
+      },
+      { upsert: true }
+    );
+
+    /* 📧 EMAIL */
+    const setupUrl = `${process.env.NEXTAUTH_URL}/set-username-password?token=${rawToken}`;
+
     await sendMail({
-      to: dealer.email,
-      subject: "Dealer Account Approved – Divine Acres",
+      to: reqDoc.email,
+      subject: "Dealer Approved – Set Username & Password",
       html: `
         <h2>Congratulations 🎉</h2>
-        <p>Your dealer account on <b>Divine Acres</b> has been approved.</p>
-        <p>Please login again to access your dealer dashboard.</p>
-        <br/>
-        <a 
-          href="https://divineacres.in/dealer_login"
-          style="display:inline-block;padding:10px 18px;background:#1e40af;color:#fff;text-decoration:none;border-radius:6px;"
-        >
-          Login to Dealer Dashboard
-        </a>
-        <br/><br/>
-        <p>Regards,<br/>Divine Acres Team</p>
+        <p>Your Dealer account has been approved.</p>
+        <a href="${setupUrl}">Set Username & Password</a>
+        <p>Link valid for 24 hours</p>
       `,
     });
 
-    /* =========================
-       4️⃣ FORCE RE-LOGIN SIGNAL
-    ========================= */
     return res.json({
-      success: true,
-      forceRelogin: true,
-      message: "Dealer approved, role updated & email sent",
+      ok: true,
+      message: "Dealer approved & setup email sent",
     });
-  } catch (error) {
-    console.error("APPROVE DEALER ERROR:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+  } catch (err) {
+    console.error("APPROVE DEALER ERROR:", err);
+    return res.status(500).json({ ok: false, message: "Server error" });
   }
 }

@@ -2,14 +2,9 @@ import React, { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 
 export default function LoginModal({ open, onClose }) {
-  const [step, setStep] = useState("role"); // role | login | otp
+  const [step, setStep] = useState("role"); // role | login
   const [role, setRole] = useState("");
   const [agree, setAgree] = useState(false);
-
-  // OTP
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [serverOtp, setServerOtp] = useState("");
 
   // USERNAME / PASSWORD
   const [username, setUsername] = useState("");
@@ -37,9 +32,6 @@ export default function LoginModal({ open, onClose }) {
       setStep("role");
       setRole("");
       setAgree(false);
-      setPhone("");
-      setOtp("");
-      setServerOtp("");
       setUsername("");
       setPassword("");
       setReferralCode("");
@@ -88,40 +80,6 @@ export default function LoginModal({ open, onClose }) {
     window.location.href = "/auth/redirect";
   };
 
-  /* ================= OTP FLOW ================= */
-  const sendOtp = async () => {
-    if (!verifyCaptcha()) return;
-    if (!agree) return alert("Please accept Terms & Conditions");
-    if (phone.length !== 10) return alert("Invalid mobile number");
-
-    const res = await fetch("/api/otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, referralCode }),
-    });
-
-    const data = await res.json();
-    if (!data.ok) return alert("OTP failed");
-
-    setServerOtp(data.otp);
-    setStep("otp");
-  };
-
-  const verifyOtp = async () => {
-    if (!verifyCaptcha()) return;
-    if (otp.length !== 6) return alert("Invalid OTP");
-
-    const res = await signIn("credentials", {
-      phone,
-      otp,
-      referralCode,
-      redirect: false,
-    });
-
-    if (!res?.ok) return alert("Login failed");
-    window.location.href = "/auth/redirect";
-  };
-
   return (
     <div style={overlay} onClick={onClose}>
       <div style={box} onClick={(e) => e.stopPropagation()}>
@@ -157,6 +115,7 @@ export default function LoginModal({ open, onClose }) {
               onChange={(e) => setUsername(e.target.value)}
               style={input}
             />
+
             <input
               type="password"
               placeholder="Password"
@@ -164,22 +123,17 @@ export default function LoginModal({ open, onClose }) {
               onChange={(e) => setPassword(e.target.value)}
               style={input}
             />
+
             <button style={btn} onClick={passwordLogin}>
               Login with Password
             </button>
 
-            <div style={orLine}>OR</div>
-
-            <input
-              placeholder="Mobile Number"
-              value={phone}
-              maxLength={10}
-              onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))}
-              style={input}
-            />
-            <button style={btnAlt} onClick={sendOtp}>
-              Send OTP
-            </button>
+            {/* FORGOT PASSWORD */}
+            <div style={forgotBox}>
+              <a href="/forgot-password" style={forgotLink}>
+                Forgot Password?
+              </a>
+            </div>
 
             <input
               placeholder="Referral Code (optional)"
@@ -209,30 +163,12 @@ export default function LoginModal({ open, onClose }) {
             </label>
           </>
         )}
-
-        {/* ===== OTP VERIFY ===== */}
-        {step === "otp" && (
-          <>
-            <h2 style={title}>Verify OTP</h2>
-            <input
-              placeholder="Enter OTP"
-              value={otp}
-              maxLength={6}
-              onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ""))}
-              style={inputOtp}
-            />
-            {serverOtp && <div style={otpBox}>OTP: {serverOtp}</div>}
-            <button style={btn} onClick={verifyOtp}>
-              Verify & Login
-            </button>
-          </>
-        )}
       </div>
     </div>
   );
 }
 
-/* ================= MOBILE-FIRST STYLES ================= */
+/* ================= STYLES ================= */
 
 const overlay = {
   position: "fixed",
@@ -264,11 +200,7 @@ const close = {
   fontSize: 22,
 };
 
-const title = {
-  textAlign: "center",
-  marginBottom: 16,
-  fontWeight: 800,
-};
+const title = { textAlign: "center", marginBottom: 16, fontWeight: 800 };
 
 const roleBtn = {
   width: "100%",
@@ -280,10 +212,7 @@ const roleBtn = {
   marginBottom: 10,
 };
 
-const roleBtnAlt = {
-  ...roleBtn,
-  background: "#0A2E6F",
-};
+const roleBtnAlt = { ...roleBtn, background: "#0A2E6F" };
 
 const googleBtn = {
   width: "100%",
@@ -292,11 +221,7 @@ const googleBtn = {
   border: "1px solid #ddd",
 };
 
-const orLine = {
-  textAlign: "center",
-  margin: "12px 0",
-  color: "#777",
-};
+const orLine = { textAlign: "center", margin: "12px 0", color: "#777" };
 
 const input = {
   width: "100%",
@@ -304,14 +229,6 @@ const input = {
   borderRadius: 8,
   border: "1px solid #ddd",
   marginBottom: 10,
-};
-
-const inputOtp = {
-  ...input,
-  textAlign: "center",
-  letterSpacing: 6,
-  fontSize: 18,
-  fontWeight: 700,
 };
 
 const btn = {
@@ -323,9 +240,16 @@ const btn = {
   borderRadius: 8,
 };
 
-const btnAlt = {
-  ...btn,
-  background: "#0A2E6F",
+const forgotBox = {
+  textAlign: "right",
+  marginBottom: 10,
+};
+
+const forgotLink = {
+  fontSize: 13,
+  color: "#315DFF",
+  textDecoration: "underline",
+  cursor: "pointer",
 };
 
 const agreeBox = {
@@ -333,15 +257,6 @@ const agreeBox = {
   gap: 8,
   fontSize: 13,
   marginTop: 12,
-};
-
-const otpBox = {
-  marginTop: 10,
-  padding: 8,
-  background: "#E8F0FF",
-  borderRadius: 6,
-  textAlign: "center",
-  fontWeight: 800,
 };
 
 const captchaBox = {

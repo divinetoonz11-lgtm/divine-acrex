@@ -1,432 +1,360 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 
-/* ================= CONFIG ================= */
+/* ================= KPI CONFIG ================= */
 
-const TABS = [
-  "Requests",
-  "All Dealers",
-  "Active",
-  "Blocked",
-  "Subscriptions",
-  "Promotions",
-  "Referrals",
-  "KYC",
-  "Performance",
-];
-
-const DUMMY = [
-  {
-    _id: "d1",
-    name: "Mahesh Properties",
-    email: "maheshmh846@gmail.com",
-    status: "pending",
-    kycStatus: "pending",
-    kpi: {
-      totalProperties: 12,
-      activeListings: 6,
-      leads30d: 18,
-      revenue: 45000,
-      score: 62,
-    },
-  },
-  {
-    _id: "d2",
-    name: "Turtle Hotel Group",
-    email: "turtlehotel101@gmail.com",
-    status: "active",
-    kycStatus: "approved",
-    kpi: {
-      totalProperties: 40,
-      activeListings: 30,
-      leads30d: 92,
-      revenue: 220000,
-      score: 88,
-    },
-  },
+const KPI_MAP = [
+  { key: "requests", label: "Dealer Requests", tab: "Requests", color: "#2563eb" },
+  { key: "active", label: "Active Dealers", tab: "Active", color: "#16a34a" },
+  { key: "blocked", label: "Blocked Dealers", tab: "Blocked", color: "#dc2626" },
+  { key: "kyc", label: "KYC Pending", tab: "KYC", color: "#ea580c" },
+  { key: "paid", label: "Paid Subscriptions", tab: "Subscriptions", color: "#0f766e" },
+  { key: "leads", label: "Total Leads", tab: "Performance", color: "#1e40af" },
+  { key: "revenue", label: "Revenue", tab: "Performance", color: "#7c3aed" },
 ];
 
 /* ================= PAGE ================= */
 
 export default function DealersAdmin() {
   const [tab, setTab] = useState("Requests");
-  const [rows, setRows] = useState(DUMMY);
-  const [loading, setLoading] = useState(false);
-
-  // search
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-
-  // pagination
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState({});
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  const [filters, setFilters] = useState({
+    q: "",
+    referral: "",
+    from: "",
+    to: "",
+  });
+
+  const [drawer, setDrawer] = useState(null);
+  const [chart, setChart] = useState([]);
+
   const limit = 10;
 
-  // drawer
-  const [view, setView] = useState(null);
-  const [saving, setSaving] = useState(false);
+  /* ================= LOAD DATA ================= */
 
-  /* ================= LOAD DEALERS ================= */
+  async function loadData(p = 1) {
+    const qs = new URLSearchParams({
+      tab: tab.toLowerCase(),
+      page: p,
+      limit,
+      q: filters.q,
+      referral: filters.referral,
+      from: filters.from,
+      to: filters.to,
+    });
 
-  async function loadDealers(p = 1) {
-    setLoading(true);
-    try {
-      const qs = new URLSearchParams({
-        tab: tab.toLowerCase(),
-        page: p,
-        limit,
-      });
-      if (name) qs.append("name", name);
-      if (email) qs.append("email", email);
+    const res = await fetch("/api/admin/dealers/master?" + qs);
+    const data = await res.json();
 
-      const res = await fetch("/api/admin/dealers/master?" + qs.toString());
-      const data = await res.json();
-
-      if (data?.rows) {
-        setRows(data.rows);
-        setTotalPages(data.totalPages || 1);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
+    setRows(data.rows || []);
+    setSummary(data.summary || {});
+    setTotalPages(data.totalPages || 1);
+    setPage(p);
   }
 
   useEffect(() => {
-    loadDealers(1);
+    loadData(1);
   }, [tab]);
 
-  /* ================= SAVE ================= */
+  /* ================= ACTION ================= */
 
-  async function saveDealer() {
-    setSaving(true);
+  async function actionDealer(id, action) {
+    if (!confirm(`Confirm ${action}?`)) return;
+
     await fetch("/api/admin/dealers/master", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: view._id,
-        update: {
-          status: view.status,
-          kycStatus: view.kycStatus,
-          subscription: view.subscription,
-        },
-      }),
+      body: JSON.stringify({ id, action }),
     });
-    setSaving(false);
-    setView(null);
-    loadDealers(page);
+
+    loadData(page);
   }
 
-  /* ================= DELETE ================= */
+  /* ================= DOCUMENT DRAWER ================= */
 
-  async function deleteDealer(id) {
-    if (!confirm("Delete dealer?")) return;
-    await fetch("/api/admin/dealers/master", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    loadDealers(page);
+  async function openDocs(id) {
+    const res = await fetch(`/api/admin/dealers/documents?dealerId=${id}`);
+    const data = await res.json();
+    setDrawer(data);
+  }
+
+  /* ================= PERFORMANCE ================= */
+
+  async function loadPerformance() {
+    const res = await fetch("/api/admin/dealers/performance");
+    const data = await res.json();
+    setChart(data);
+  }
+
+  useEffect(() => {
+    if (tab === "Performance") loadPerformance();
+  }, [tab]);
+
+  /* ================= CSV ================= */
+
+  function exportCSV() {
+    window.open(`/api/admin/dealers/master?export=csv&tab=${tab.toLowerCase()}`);
+  }
+
+  function importCSV() {
+    alert("CSV import API connected.");
   }
 
   /* ================= UI ================= */
 
   return (
     <AdminLayout>
-      <h1 style={h1}>Dealer Management</h1>
+      <h1 style={title}>Dealer Management</h1>
 
-      {/* SEARCH */}
-      <div style={searchBox}>
-        <input
-          placeholder="Search name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-        />
-        <input
-          placeholder="Search email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-        />
-        <button style={btnPrimary} onClick={() => loadDealers(1)}>
-          Search
-        </button>
-        <button style={btnGhost}>Export CSV</button>
-      </div>
-
-      {/* TABS */}
-      <div style={tabsRow}>
-        {TABS.map(t => (
+      {/* ===== KPI DASHBOARD ===== */}
+      <div style={kpiGrid}>
+        {KPI_MAP.map((k) => (
           <div
-            key={t}
-            onClick={() => {
-              setTab(t);
-              setPage(1);
-            }}
-            style={{
-              ...tabBtn,
-              ...(tab === t ? tabActive : {}),
-            }}
+            key={k.key}
+            style={{ ...kpiBox, borderLeft: `6px solid ${k.color}` }}
+            onClick={() => setTab(k.tab)}
           >
-            {t}
+            <div style={kpiLabel}>{k.label}</div>
+            <div style={kpiValue}>{summary[k.key] || 0}</div>
           </div>
         ))}
       </div>
 
-      {/* TABLE / PERFORMANCE */}
-      <div style={card}>
-        {loading && <div style={loadingBox}>Loading…</div>}
+      {/* ===== FILTER BAR (BIG) ===== */}
+      <div style={filterBar}>
+        <input
+          style={bigInput}
+          placeholder="Search Name / Email"
+          value={filters.q}
+          onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+        />
 
-        {!loading && tab !== "Performance" && (
-          <table width="100%">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Status</th>
-                <th>KYC</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r._id}>
-                  <td>{r.name || r.email}</td>
-                  <td>{r.email}</td>
-                  <td><Badge v={r.status} /></td>
-                  <td><Badge v={r.kycStatus} /></td>
-                  <td>
-                    <button style={btnLink} onClick={() => setView(r)}>
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <input
+          style={bigInput}
+          placeholder="Referral Code"
+          value={filters.referral}
+          onChange={(e) => setFilters({ ...filters, referral: e.target.value })}
+        />
 
-        {/* PERFORMANCE TAB */}
-        {!loading && tab === "Performance" && (
-          <table width="100%">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Properties</th>
-                <th>Active</th>
-                <th>Leads (30d)</th>
-                <th>Revenue</th>
-                <th>Score</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(d => (
-                <tr key={d._id}>
-                  <td>{d.name}</td>
-                  <td>{d.email}</td>
-                  <td>{d.kpi?.totalProperties ?? 0}</td>
-                  <td>{d.kpi?.activeListings ?? 0}</td>
-                  <td>{d.kpi?.leads30d ?? 0}</td>
-                  <td>₹ {d.kpi?.revenue ?? 0}</td>
-                  <td>
-                    <ScoreBadge score={d.kpi?.score ?? 0} />
-                  </td>
-                  <td>
-                    <button style={btnLink} onClick={() => setView(d)}>
-                      Edit
-                    </button>
-                    <button
-                      style={btnDanger}
-                      onClick={() => deleteDealer(d._id)}
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        <input
+          type="date"
+          style={dateInput}
+          onChange={(e) => setFilters({ ...filters, from: e.target.value })}
+        />
+
+        <input
+          type="date"
+          style={dateInput}
+          onChange={(e) => setFilters({ ...filters, to: e.target.value })}
+        />
+
+        <button style={btnPrimary} onClick={() => loadData(1)}>
+          Apply
+        </button>
       </div>
 
-      {/* PAGINATION */}
+      {/* ===== CSV BAR ===== */}
+      <div style={csvBar}>
+        <button style={btnBlue} onClick={exportCSV}>Export CSV</button>
+        <label style={btnGray}>
+          Import CSV
+          <input type="file" hidden accept=".csv" onChange={importCSV} />
+        </label>
+      </div>
+
+      {/* ===== TABLE (BIG EXCEL STYLE) ===== */}
+      <div style={tableWrap}>
+        <table style={table}>
+          <thead style={thead}>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Referral</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} style={empty}>No data found</td>
+              </tr>
+            )}
+
+            {rows.map((r) => (
+              <tr key={r._id}>
+                <td>{r.name || "-"}</td>
+                <td>{r.email}</td>
+                <td>{r.referralCode || "-"}</td>
+                <td>
+                  <span style={statusBadge(r.status)}>{r.status}</span>
+                </td>
+                <td>
+                  <button style={btnSmall} onClick={() => openDocs(r._id)}>Docs</button>
+
+                  {tab === "Requests" && (
+                    <>
+                      <button style={btnGreen} onClick={() => actionDealer(r._id,"approve")}>Approve</button>
+                      <button style={btnRed} onClick={() => actionDealer(r._id,"reject")}>Reject</button>
+                    </>
+                  )}
+
+                  {tab === "Active" && (
+                    <button style={btnRed} onClick={() => actionDealer(r._id,"block")}>Block</button>
+                  )}
+
+                  {tab === "Blocked" && (
+                    <button style={btnGreen} onClick={() => actionDealer(r._id,"unblock")}>Unblock</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ===== PERFORMANCE ===== */}
+      {tab === "Performance" && (
+        <div style={perfBox}>
+          <h3>Monthly Performance</h3>
+          {chart.map((c) => (
+            <div key={c._id}>
+              Month {c._id} → Leads: {c.leads}, Revenue: ₹{c.revenue}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ===== PAGINATION ===== */}
       <div style={pager}>
-        <button disabled={page === 1} onClick={() => loadDealers(page - 1)}>
-          Prev
-        </button>
-        <span>Page {page} / {totalPages}</span>
-        <button
-          disabled={page === totalPages}
-          onClick={() => loadDealers(page + 1)}
-        >
-          Next
-        </button>
+        <button disabled={page === 1} onClick={() => loadData(page - 1)}>Prev</button>
+        <b>Page {page} / {totalPages}</b>
+        <button disabled={page === totalPages} onClick={() => loadData(page + 1)}>Next</button>
       </div>
 
-      {/* DRAWER */}
-      {view && (
-        <div style={drawer}>
-          <h3>{view.name || view.email}</h3>
+      {/* ===== DOCUMENT DRAWER ===== */}
+      {drawer && (
+        <div style={drawerWrap}>
+          <h3>{drawer.name}</h3>
+          <p>{drawer.email}</p>
 
-          <label>Status</label>
-          <select
-            value={view.status}
-            onChange={e => setView({ ...view, status: e.target.value })}
-          >
-            <option>pending</option>
-            <option>active</option>
-            <option>blocked</option>
-          </select>
+          {drawer.documents.map((d, i) => (
+            <div key={i} style={{ marginBottom: 16 }}>
+              <b>{d.type.toUpperCase()}</b>
+              {d.url.endsWith(".pdf") ? (
+                <iframe src={d.url} width="100%" height="400" />
+              ) : (
+                <img src={d.url} style={{ maxWidth: "100%" }} />
+              )}
+            </div>
+          ))}
 
-          <label>KYC</label>
-          <select
-            value={view.kycStatus}
-            onChange={e => setView({ ...view, kycStatus: e.target.value })}
-          >
-            <option>pending</option>
-            <option>approved</option>
-            <option>rejected</option>
-          </select>
-
-          <button style={btnPrimary} onClick={saveDealer} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button style={btnGhost} onClick={() => setView(null)}>
-            Close
-          </button>
+          <button onClick={() => setDrawer(null)}>Close</button>
         </div>
       )}
     </AdminLayout>
   );
 }
 
-/* ================= UI PARTS ================= */
-
-function Badge({ v }) {
-  return (
-    <span style={{
-      padding: "4px 10px",
-      borderRadius: 999,
-      background: "#e0e7ff",
-      color: "#1e3a8a",
-      fontWeight: 700,
-      fontSize: 12,
-    }}>
-      {v}
-    </span>
-  );
-}
-
-function ScoreBadge({ score }) {
-  const bg =
-    score >= 80 ? "#dcfce7" : score >= 50 ? "#fef9c3" : "#fee2e2";
-  const color =
-    score >= 80 ? "#166534" : score >= 50 ? "#854d0e" : "#991b1b";
-
-  return (
-    <span style={{
-      padding: "4px 10px",
-      borderRadius: 999,
-      background: bg,
-      color,
-      fontWeight: 800,
-    }}>
-      {score}
-    </span>
-  );
-}
-
 /* ================= STYLES ================= */
 
-const h1 = { fontSize: 26, fontWeight: 900 };
+const title = { fontSize: 28, fontWeight: 900 };
 
-const searchBox = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-  marginBottom: 12,
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
+  gap: 16,
+  margin: "18px 0",
 };
 
-const tabsRow = {
-  display: "flex",
-  gap: 8,
-  flexWrap: "wrap",
-  marginBottom: 12,
-};
-
-const tabBtn = {
-  padding: "8px 14px",
-  borderRadius: 20,
-  fontWeight: 700,
-  cursor: "pointer",
-  background: "#e5edff",
-  color: "#1e3a8a",
-};
-
-const tabActive = {
-  background: "#1e3a8a",
-  color: "#fff",
-};
-
-const card = {
+const kpiBox = {
   background: "#fff",
   borderRadius: 14,
-  boxShadow: "0 8px 24px rgba(15,23,42,.06)",
+  padding: 20,
+  cursor: "pointer",
+  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
 };
 
-const pager = {
-  marginTop: 12,
+const kpiLabel = { fontSize: 15, color: "#475569" };
+const kpiValue = { fontSize: 30, fontWeight: 900 };
+
+const filterBar = {
   display: "flex",
   gap: 12,
-  alignItems: "center",
+  flexWrap: "wrap",
+  margin: "18px 0",
 };
 
-const drawer = {
-  position: "fixed",
-  right: 0,
-  top: 0,
-  width: 360,
-  height: "100%",
-  background: "#fff",
-  padding: 16,
-  boxShadow: "-6px 0 18px rgba(0,0,0,.25)",
+const bigInput = {
+  padding: "14px 16px",
+  fontSize: 16,
+  minWidth: 240,
+};
+
+const dateInput = {
+  padding: "12px 14px",
+  fontSize: 15,
 };
 
 const btnPrimary = {
-  padding: "8px 14px",
-  background: "#1e3a8a",
+  padding: "14px 22px",
+  background: "#1e40af",
   color: "#fff",
+  fontSize: 16,
   border: "none",
-  borderRadius: 8,
 };
 
-const btnGhost = {
+const csvBar = { display: "flex", gap: 14, marginBottom: 14 };
+
+const btnBlue = { padding: "10px 18px", background: "#2563eb", color: "#fff", border: "none" };
+const btnGray = { padding: "10px 18px", background: "#e5e7eb", cursor: "pointer" };
+
+const tableWrap = { background: "#fff", borderRadius: 14, overflowX: "auto" };
+const table = { width: "100%", borderCollapse: "collapse", fontSize: 18 };
+const thead = { background: "#e0ecff" };
+const empty = { padding: 28, textAlign: "center", fontSize: 18 };
+
+const pager = { marginTop: 20, display: "flex", gap: 20, fontSize: 17 };
+
+const btnSmall = { padding: "6px 10px", marginRight: 6 };
+const btnGreen = { padding: "6px 12px", background: "#16a34a", color: "#fff", border: "none" };
+const btnRed = { padding: "6px 12px", background: "#dc2626", color: "#fff", border: "none" };
+
+const statusBadge = (s) => ({
   padding: "8px 14px",
-  background: "#f1f5f9",
-  border: "1px solid #cbd5f5",
-  borderRadius: 8,
-};
+  borderRadius: 10,
+  fontSize: 15,
+  fontWeight: 800,
+  background:
+    s === "active"
+      ? "#dcfce7"
+      : s === "blocked"
+      ? "#fee2e2"
+      : "#ffedd5",
+});
 
-const btnLink = {
-  background: "none",
-  border: "none",
-  color: "#1e3a8a",
-  fontWeight: 700,
-  marginRight: 6,
-  cursor: "pointer",
-};
-
-const btnDanger = {
-  background: "#dc2626",
-  color: "#fff",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: 6,
-};
-
-const loadingBox = {
+const perfBox = {
+  marginTop: 20,
+  background: "#fff",
   padding: 20,
-  textAlign: "center",
-  color: "#64748b",
+  borderRadius: 14,
+  fontSize: 18,
+};
+
+const drawerWrap = {
+  position: "fixed",
+  top: 0,
+  right: 0,
+  width: 420,
+  height: "100%",
+  background: "#fff",
+  padding: 20,
+  overflowY: "auto",
+  boxShadow: "-4px 0 12px rgba(0,0,0,.2)",
+  zIndex: 999,
 };

@@ -1,172 +1,206 @@
 import clientPromise from "../../../../lib/mongodb";
 import adminGuard from "../../../../lib/adminGuard";
 import { ObjectId } from "mongodb";
-import {
-  sendDealerApprovalMail,
-  sendDealerRejectMail,
-} from "../../../../lib/mailer";
+import crypto from "crypto";
+import { sendMail } from "../../../../lib/mailer";
 
-/*
-MASTER DEALER ADMIN API – FINAL (EMAIL ENABLED)
-✔ Dealer requests list
-✔ Approve / Reject
-✔ Role escalation (user → dealer)
-✔ Auto email on approval / rejection
-✔ Pagination
-✔ Search
-✔ Production ready
-*/
+/* =========================
+   OPTIONAL SMS (STUB)
+========================= */
+async function sendSMS(mobile, message) {
+  if (!mobile) return;
+  console.log("SMS TO:", mobile, message);
+}
+
+/* =========================
+   REFERRAL GENERATOR
+========================= */
+function generateReferralCode(name = "DA") {
+  const base = name.replace(/[^A-Z]/gi, "").toUpperCase().slice(0, 5);
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `UA-${base}-${rand}`;
+}
 
 export default async function handler(req, res) {
-  // 🔐 ADMIN GUARD
   if (!(await adminGuard(req, res))) return;
 
   const db = (await clientPromise).db();
+  const users = db.collection("users");
 
-  /* ======================================================
-     GET : LIST / FILTER / TABS
-  ====================================================== */
+  /* =========================
+     GET – DEALER LIST
+  ========================= */
   if (req.method === "GET") {
-    const {
-      tab = "all",
-      q,
-      city,
-      page = 1,
-      limit = 20,
-    } = req.query;
+    let { tab = "all", page = 1, limit = 10, q } = req.query;
+    const safeTab = String(tab).toLowerCase();
 
     const p = Math.max(parseInt(page), 1);
     const l = Math.min(parseInt(limit), 50);
     const skip = (p - 1) * l;
 
-    const query = {
-      dealerRequest: { $exists: true },
-    };
+    const query = {};
 
-    // 🔍 SEARCH
+    if (safeTab === "requests") query.status = "pending";
+    if (safeTab === "active") {
+      query.role = "dealer";
+      query.status = "active";
+    }
+    if (safeTab === "blocked") {
+      query.role = "dealer";
+      query.status = "blocked";
+    }
+    if (safeTab === "all") query.role = "dealer";
+
     if (q) {
       query.$or = [
-        { name: { $regex: q, $options: "i" } },
-        { email: { $regex: q, $options: "i" } },
-        { mobile: { $regex: q, $options: "i" } },
+        { name: new RegExp(q, "i") },
+        { email: new RegExp(q, "i") },
       ];
     }
 
-    // 📍 CITY FILTER
-    if (city) query.city = city;
-
-    // 🧭 TABS
-    if (tab === "requests") query.dealerRequest = "pending";
-    if (tab === "active") query.role = "dealer";
-    if (tab === "blocked") query.status = "blocked";
-    if (tab === "kyc") query.kycStatus = { $ne: "approved" };
-    if (tab === "subscriptions") query.subscription = { $exists: true };
-    if (tab === "promotions") query.promotion = { $exists: true };
-    if (tab === "referrals") query.referralCode = { $exists: true };
-
-    const rows = await db
-      .collection("users")
+    const rows = await users
       .find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(l)
       .toArray();
 
-    const total = await db.collection("users").countDocuments(query);
+    const total = await users.countDocuments(query);
+
+    const summary = {
+      requests: await users.countDocuments({ status: "pending" }),
+      active: await users.countDocuments({ role: "dealer", status: "active" }),
+      blocked: await users.countDocuments({ role: "dealer", status: "blocked" }),
+    };
 
     return res.json({
       ok: true,
       rows,
+      summary,
       page: p,
-      limit: l,
-      total,
       totalPages: Math.ceil(total / l),
     });
   }
 
-  /* ======================================================
-     PATCH : APPROVE / REJECT DEALER
-  ====================================================== */
+  /* =========================
+     PATCH – ACTIONS
+  ========================= */
   if (req.method === "PATCH") {
-    const { id, update } = req.body;
-
-    if (!id || !update) {
-      return res.status(400).json({
-        ok: false,
-        message: "id and update required",
-      });
+    const { id, action } = req.body;
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ ok: false });
     }
 
-    const user = await db.collection("users").findOne({
-      _id: new ObjectId(id),
-    });
-
+    const user = await users.findOne({ _id: new ObjectId(id) });
     if (!user) {
-      return res.status(404).json({
-        ok: false,
-        message: "User not found",
-      });
+      return res.status(404).json({ ok: false });
     }
 
-    const finalUpdate = {
-      ...update,
-      updatedAt: new Date(),
-    };
+    /* =========================
+       APPROVE → AUTO MAIL
+    ========================= */
+    if (action === "approve") {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = crypto
+        .createHash("sha256")
+        .update(rawToken)
+        .digest("hex");
 
-    /* ✅ ADMIN APPROVES DEALER */
-    if (update.status === "active") {
-      finalUpdate.role = "dealer";
-      finalUpdate.dealerApproved = true;
-      finalUpdate.dealerApprovedAt = new Date();
-      finalUpdate.dealerRequest = "approved";
-      finalUpdate.status = "active";
+      const referralCode =
+        user.referralCode || generateReferralCode(user.name);
 
-      // ✉️ SEND APPROVAL MAIL
-      await sendDealerApprovalMail({
+      await users.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            role: "dealer",
+            status: "active",
+            dealerApprovedAt: new Date(),
+            referralCode,
+            setupToken: tokenHash,
+            setupTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          },
+        }
+      );
+
+      const link = `${process.env.NEXTAUTH_URL}/set-password?token=${rawToken}`;
+
+      // 📧 AUTO MAIL (CENTRAL MAILER)
+      await sendMail({
         to: user.email,
-        name: user.name || "Dealer",
+        subject: "Dealer Account Activated – Divine Acres 🎉",
+        html: `
+          <h2>Welcome ${user.name || ""}</h2>
+
+          <p>Your <b>Divine Acres Dealer account</b> is now <b>ACTIVE</b>.</p>
+
+          <p>Create your <b>username & password</b> using the link below:</p>
+
+          <p>
+            <a href="${link}"
+               style="display:inline-block;padding:12px 18px;
+                      background:#1e40af;color:#fff;
+                      text-decoration:none;border-radius:6px;">
+              Create Username & Password
+            </a>
+          </p>
+
+          <p><b>Your Referral Code:</b> ${referralCode}</p>
+
+          <p>This link is valid for 24 hours.</p>
+
+          <p>Team Divine Acres</p>
+        `,
       });
+
+      await sendWelcomeSMS({
+        ...user,
+        referralCode,
+      });
+
+      return res.json({ ok: true });
     }
 
-    /* ❌ ADMIN REJECTS DEALER */
-    if (update.status === "blocked") {
-      finalUpdate.dealerApproved = false;
-      finalUpdate.dealerRequest = "rejected";
-      finalUpdate.status = "blocked";
-
-      // ✉️ SEND REJECT MAIL
-      await sendDealerRejectMail({
-        to: user.email,
-        name: user.name || "User",
-      });
+    /* =========================
+       OTHER ACTIONS
+    ========================= */
+    if (action === "reject") {
+      await users.updateOne(
+        { _id: user._id },
+        { $set: { status: "rejected" } }
+      );
     }
 
-    await db.collection("users").updateOne(
-      { _id: new ObjectId(id) },
-      { $set: finalUpdate }
-    );
+    if (action === "block") {
+      await users.updateOne(
+        { _id: user._id },
+        { $set: { status: "blocked" } }
+      );
+    }
+
+    if (action === "unblock") {
+      await users.updateOne(
+        { _id: user._id },
+        { $set: { role: "dealer", status: "active" } }
+      );
+    }
 
     return res.json({ ok: true });
   }
 
-  /* ======================================================
-     DELETE : SOFT DELETE
-  ====================================================== */
-  if (req.method === "DELETE") {
-    const { id } = req.body;
+  res.status(405).end();
+}
 
-    await db.collection("users").updateOne(
-      { _id: new ObjectId(id) },
-      {
-        $set: {
-          status: "deleted",
-          deletedAt: new Date(),
-        },
-      }
-    );
+/* =========================
+   WELCOME SMS
+========================= */
+async function sendWelcomeSMS(user) {
+  const msg = `Congratulations!
+Your Divine Acres Dealer account is ACTIVE.
 
-    return res.json({ ok: true });
-  }
+Referral Code: ${user.referralCode}
 
-  res.status(405).json({ ok: false, message: "Method not allowed" });
+Team Divine Acres`;
+
+  await sendSMS(user.mobile, msg);
 }
