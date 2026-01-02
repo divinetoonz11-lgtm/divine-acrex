@@ -4,15 +4,11 @@ import SearchBar from "../components/SearchBar";
 import Dealers from "../components/Dealers";
 import ServicesSection from "../components/ServicesSection";
 
-/**
- * ORIGINAL HOME PAGE
- * - Header / MobileHeader from _app.jsx
- * - No auth / redirect logic
- * - Inline hero slider (first version)
- */
+import { useLanguage } from "../context/LanguageContext";
 
 export default function Home() {
   const [slideIndex, setSlideIndex] = useState(0);
+  const { lang } = useLanguage();
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -23,7 +19,6 @@ export default function Home() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#fff" }}>
-      {/* ======================= HERO ======================== */}
       <section
         style={{
           position: "relative",
@@ -42,9 +37,9 @@ export default function Home() {
             backgroundRepeat: "no-repeat",
             transition: "background-image 0.6s ease",
           }}
+          aria-label={lang === "hi" ? "प्रॉपर्टी खोज" : "Property Search"}
         />
 
-        {/* SearchBar overlapping hero */}
         <div
           style={{
             position: "relative",
@@ -62,16 +57,13 @@ export default function Home() {
           </div>
         </div>
       </section>
-      {/* ====================================================== */}
 
-      {/* ======================= BODY ======================== */}
       <main style={{ background: "#fff", paddingBottom: 20 }}>
         <div style={{ maxWidth: 1250, margin: "0 auto", padding: "0 16px" }}>
           <Dealers />
           <ServicesSection />
         </div>
       </main>
-      {/* ====================================================== */}
     </div>
   );
 }

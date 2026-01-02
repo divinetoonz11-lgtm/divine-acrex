@@ -11,6 +11,9 @@ import { useEffect } from "react";
 import Script from "next/script";
 import * as ga from "../lib/ga";
 
+// ✅ KEEP (safe, no UI impact)
+import { LanguageProvider } from "../context/LanguageContext";
+
 /* ======================================================
    🔒 ROLE SYNC GUARD (SAFE VERSION)
    ------------------------------------------------------
@@ -64,35 +67,55 @@ export default function MyApp({ Component, pageProps }) {
     };
   }, [router.events]);
 
+  // ✅ TAWK.TO CHAT (CLIENT SIDE – SAFE)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    var Tawk_API = window.Tawk_API || {};
+    var Tawk_LoadStart = new Date();
+
+    (function () {
+      var s1 = document.createElement("script");
+      var s0 = document.getElementsByTagName("script")[0];
+      s1.async = true;
+      s1.src = "https://embed.tawk.to/69448bebc73adf1980aabd20/1jds4gnk2";
+      s1.charset = "UTF-8";
+      s1.setAttribute("crossorigin", "*");
+      s0.parentNode.insertBefore(s1, s0);
+    })();
+  }, []);
+
   return (
     <SessionProvider session={pageProps.session}>
-      {/* 🔒 SAFE ROLE SYNC */}
-      <RoleSyncGuard />
+      <LanguageProvider>
+        {/* 🔒 SAFE ROLE SYNC */}
+        <RoleSyncGuard />
 
-      {ga.GA_ID && (
-        <>
-          <Script
-            strategy="afterInteractive"
-            src={`https://www.googletagmanager.com/gtag/js?id=${ga.GA_ID}`}
-          />
-          <Script id="ga-init" strategy="afterInteractive">
-            {`
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', '${ga.GA_ID}', { anonymize_ip: true });
-            `}
-          </Script>
-        </>
-      )}
+        {ga.GA_ID && (
+          <>
+            <Script
+              strategy="afterInteractive"
+              src={`https://www.googletagmanager.com/gtag/js?id=${ga.GA_ID}`}
+            />
+            <Script id="ga-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '${ga.GA_ID}', { anonymize_ip: true });
+              `}
+            </Script>
+          </>
+        )}
 
-      {!hideLayout && <Header />}
+        {!hideLayout && <Header />}
 
-      <main style={{ minHeight: "70vh" }}>
-        <Component {...pageProps} />
-      </main>
+        <main style={{ minHeight: "70vh" }}>
+          <Component {...pageProps} />
+        </main>
 
-      {!hideLayout && <Footer />}
+        {!hideLayout && <Footer />}
+      </LanguageProvider>
     </SessionProvider>
   );
 }

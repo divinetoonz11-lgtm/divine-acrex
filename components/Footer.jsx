@@ -65,6 +65,7 @@ export default function Footer() {
                 <li><a href="/listings">Listings</a></li>
                 <li><a href="/post-property">Free Listing</a></li>
                 <li><a href="/for-buyers">For Buyers</a></li>
+                <li><a href="/disclaimer">Disclaimer</a></li>
               </ul>
 
               <ul className={styles.linkCol}>
@@ -116,6 +117,7 @@ export default function Footer() {
           <div className={styles.footLinks}>
             <a href="/terms">Terms of Use</a>
             <a href="/privacy-policy">Privacy Policy</a>
+            <a href="/disclaimer">Disclaimer</a>
             <a href="/sitemap">Sitemap</a>
           </div>
         </div>
