@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
+/* ================= SAFE DUMMY IMAGES ================= */
 const DUMMY_IMAGES = [
   "/images/listing-example-1.png",
   "/images/listing-example-2.png",
@@ -8,30 +9,54 @@ const DUMMY_IMAGES = [
   "/images/listing-example-4.png",
 ];
 
+/* ================= MAIN ================= */
 export default function MyProperties() {
   const router = useRouter();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  /* ===== LOAD DATA (LIVE + FALLBACK DUMMY SAFE) ===== */
   useEffect(() => {
+    let alive = true;
+
     fetch("/api/dealer/listings")
-      .then((r) => r.json())
-      .then((j) => {
-        setList(j.data || []);
+      .then(r => r.json())
+      .then(j => {
+        if (!alive) return;
+
+        const data = Array.isArray(j?.data) ? j.data : [];
+        setList(data);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => (alive = false);
   }, []);
 
+  /* ===== DELETE (OPTIMISTIC, SAFE) ===== */
   const deleteProperty = async (id) => {
     if (!confirm("Delete property?")) return;
-    await fetch(`/api/properties/${id}`, { method: "DELETE" });
-    setList((p) => p.filter((x) => x._id !== id));
+
+    setList(p => p.filter(x => x._id !== id)); // instant UI
+    try {
+      await fetch(`/api/properties/${id}`, { method: "DELETE" });
+    } catch {}
   };
 
+  /* ===== IMAGE RESOLVER ===== */
   const getImage = (p, index) => {
-    if (p.images && p.images.length > 0) return p.images[0];
+    if (Array.isArray(p?.images) && p.images[0]) return p.images[0];
     return DUMMY_IMAGES[index % DUMMY_IMAGES.length];
+  };
+
+  /* ===== VERIFY BADGE (LIVE + DUMMY SUPPORT) ===== */
+  const VerifyBadge = ({ p }) => {
+    if (p?.verificationStatus === "VERIFIED_LIVE") {
+      return <span style={badgeGreen}>✔ Verified</span>;
+    }
+    return <span style={badgeYellow}>Unverified</span>;
   };
 
   if (loading) return <div style={page}>Loading…</div>;
@@ -40,18 +65,31 @@ export default function MyProperties() {
     <div style={page}>
       <h2 style={title}>My Properties</h2>
 
-      <div style={grid}>
-        {list.length === 0 ? (
-          <div style={empty}>No properties found</div>
-        ) : (
-          list.map((p, i) => (
-            <div key={p._id} style={card}>
-              <img src={getImage(p, i)} style={img} />
+      {list.length === 0 ? (
+        <div style={empty}>No properties found</div>
+      ) : (
+        <div style={grid}>
+          {list.map((p, i) => (
+            <div key={p._id || i} style={card}>
+              <img src={getImage(p, i)} style={img} loading="lazy" />
 
               <div style={body}>
-                <div style={name}>{p.title}</div>
-                <div style={location}>{p.location}</div>
-                <div style={price}>₹ {p.price}</div>
+                <div style={row}>
+                  <div style={name}>{p.title || "Property"}</div>
+                  <VerifyBadge p={p} />
+                </div>
+
+                <div style={location}>
+                  {p.city || p.location || "Location not set"}
+                </div>
+
+                <div style={price}>₹ {p.price || "—"}</div>
+
+                {p.verificationStatus !== "VERIFIED_LIVE" && (
+                  <div style={hint}>
+                    Live photo upload karke verified banaye
+                  </div>
+                )}
 
                 <div style={actions}>
                   <button
@@ -71,99 +109,126 @@ export default function MyProperties() {
                 </div>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-/* ================= STYLES (99acres feel) ================= */
+/* ================= PERFORMANCE SAFE STYLES ================= */
 
 const page = {
-  padding: 28,
+  padding: "16px",
   background: "#f7f7f7",
   minHeight: "100vh",
 };
 
 const title = {
-  fontSize: 24,
+  fontSize: 22,
   fontWeight: 900,
-  color: "#111827",
 };
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fill, minmax(270px, 1fr))",
-  gap: 20,
-  marginTop: 20,
+  gridTemplateColumns: "repeat(auto-fill, minmax(260px,1fr))",
+  gap: 16,
+  marginTop: 16,
 };
 
 const card = {
-  background: "#ffffff",
-  borderRadius: 12,
+  background: "#fff",
+  borderRadius: 14,
   overflow: "hidden",
-  boxShadow: "0 4px 14px rgba(0,0,0,.08)",
-  transition: "transform .2s",
+  boxShadow: "0 4px 12px rgba(0,0,0,.08)",
 };
 
 const img = {
   width: "100%",
-  height: 180,
+  height: 170,
   objectFit: "cover",
 };
 
 const body = {
-  padding: 14,
+  padding: 12,
+};
+
+const row = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 8,
+  alignItems: "center",
 };
 
 const name = {
   fontWeight: 800,
-  fontSize: 15,
-  lineHeight: "1.3",
+  fontSize: 14,
 };
 
 const location = {
-  fontSize: 13,
+  fontSize: 12,
   color: "#6b7280",
   marginTop: 4,
 };
 
 const price = {
-  fontWeight: 900,
   fontSize: 16,
+  fontWeight: 900,
   marginTop: 6,
-  color: "#111827",
+};
+
+const hint = {
+  marginTop: 6,
+  fontSize: 11,
+  color: "#92400e",
+  fontWeight: 700,
 };
 
 const actions = {
   display: "flex",
-  gap: 10,
-  marginTop: 12,
+  gap: 8,
+  marginTop: 10,
 };
 
 const edit = {
   flex: 1,
-  padding: "8px 0",
+  padding: "8px",
   background: "#16a34a",
   color: "#fff",
   border: 0,
   borderRadius: 8,
   fontWeight: 700,
-  cursor: "pointer",
 };
 
 const del = {
   flex: 1,
-  padding: "8px 0",
+  padding: "8px",
   background: "#ef4444",
   color: "#fff",
   border: 0,
   borderRadius: 8,
   fontWeight: 700,
-  cursor: "pointer",
+};
+
+const badgeGreen = {
+  background: "#dcfce7",
+  color: "#166534",
+  fontSize: 11,
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontWeight: 800,
+};
+
+const badgeYellow = {
+  background: "#fef3c7",
+  color: "#92400e",
+  fontSize: 11,
+  padding: "4px 8px",
+  borderRadius: 999,
+  fontWeight: 800,
 };
 
 const empty = {
   color: "#6b7280",
+  marginTop: 20,
 };
