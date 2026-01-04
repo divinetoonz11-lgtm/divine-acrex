@@ -6,64 +6,61 @@ import { authOptions } from "../auth/[...nextauth]";
 const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false });
+  }
+
   try {
-    /* ================= CREATE PROPERTY ================= */
-    if (req.method === "POST") {
-      const session = await getServerSession(req, res, authOptions);
+    const session = await getServerSession(req, res, authOptions);
 
-      if (!session?.user?.email) {
-        return res.status(401).json({ ok: false, message: "Unauthorized" });
-      }
-
-      const body = req.body || {};
-
-      // 🔒 FORCE SAFE DATA (no trust on frontend)
-      const data = {
-        title: body.propertyType || "Property",
-        category: body.category,
-        propertyType: body.propertyType,
-        furnishing: body.furnishing || null,
-
-        price: Number(body.price || 0),
-        area: Number(body.area || 0),
-
-        state: body.state || "",
-        city: body.city || "",
-        locality: body.locality || "",
-        society: body.society || "",
-
-        floor: body.floor || "",
-        vastu: body.vastu || "",
-        description: body.description || "",
-        mobile: body.mobile || "",
-
-        amenities: body.amenities || [],
-
-        // 🔑 OWNER AUTO
-        ownerId: session.user.id,
-        ownerRole: session.user.role, // USER / DEALER
-
-        // 🔥 DEFAULT FLOW
-        status: "APPROVED",                 // live
-        verificationStatus: "UNVERIFIED",   // not verified
-        verifiedSource: null,
-      };
-
-      const listing = await prisma.listing.create({ data });
-
-      return res.status(200).json({
-        ok: true,
-        message: "Property posted successfully",
-        listingId: listing.id,
-      });
+    if (!session?.user?.email || !session?.user?.id) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
     }
 
-    return res.status(405).json({ ok: false });
+    const b = req.body || {};
+
+    const listing = await prisma.listing.create({
+      data: {
+        // 🔐 REQUIRED SAFE FIELDS
+        title: b.propertyType || "Property",
+        category: b.category || "residential",
+        propertyType: b.propertyType || "Property",
+
+        price: Number(b.price || 0),
+        area: Number(b.area || 0),
+
+        state: b.state || "",
+        city: b.city || "",
+        locality: b.locality || "",
+        society: b.society || "",
+
+        description: b.description || "",
+        mobile: b.mobile || "",
+
+        // ⚠️ IMPORTANT FIX
+        amenities: JSON.stringify(b.amenities || []),
+
+        // 🔑 OWNER (SAFE)
+        ownerId: String(session.user.id),
+        ownerRole: session.user.role === "dealer" ? "DEALER" : "USER",
+
+        // 🔥 LIVE BUT UNVERIFIED
+        status: "APPROVED",
+        verificationStatus: "UNVERIFIED",
+        verifiedSource: null,
+      },
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Property posted (Live + Unverified)",
+      listingId: listing.id,
+    });
   } catch (error) {
     console.error("PROPERTY CREATE ERROR:", error);
     return res.status(500).json({
       ok: false,
-      message: "Internal Server Error",
+      message: "Property save failed",
       error: error.message,
     });
   }
