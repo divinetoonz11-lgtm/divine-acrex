@@ -5,63 +5,78 @@ import { authOptions } from "../auth/[...nextauth]";
 const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
-  try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ ok: false });
-    }
+  /* ================= ONLY POST ================= */
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, message: "Method not allowed" });
+  }
 
+  try {
+    /* ================= AUTH ================= */
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session?.user?.email) {
+    if (!session?.user?.email || !session?.user?.id) {
       return res.status(401).json({ ok: false, message: "Unauthorized" });
     }
 
-    const body = req.body || {};
+    const b = req.body || {};
 
-    // ✅ SAFE CREATE (NO FRONTEND TRUST)
+    /* ================= SAFE DATA ================= */
     const listing = await prisma.listing.create({
       data: {
-        title: body.propertyType || "Property",
-        category: body.category || "residential",
-        propertyType: body.propertyType || "",
-        furnishing: body.furnishing || null,
+        /* BASIC */
+        title: b.propertyType || "Property",
+        category: b.category || "residential",
+        propertyType: b.propertyType || "Property",
+        furnishing: b.furnishing || null,
 
-        price: Number(body.price || 0),
-        area: Number(body.area || 0),
+        /* PRICE / AREA */
+        price: Number(b.price || 0),
+        area: Number(b.area || 0),
 
-        state: body.state || "",
-        city: body.city || "",
-        locality: body.locality || "",
-        society: body.society || "",
+        /* LOCATION (🔥 MAIN FIX) */
+        state: b.stateName || b.state || "",
+        city: b.city || "",
+        locality: b.locality || "",
+        society: b.society || "",
 
-        floor: body.floor || "",
-        vastu: body.vastu || "",
-        description: body.description || "",
-        mobile: body.mobile || "",
+        /* EXTRA */
+        floor: b.floor || "",
+        vastu: b.vastu || "",
+        description: b.description || "",
+        mobile: b.mobile || "",
 
-        amenities: body.amenities || [],
+        /* AMENITIES (SAFE FOR ANY SCHEMA) */
+        amenities: Array.isArray(b.amenities)
+          ? b.amenities.join(",")
+          : "",
 
-        // 🔑 IMPORTANT FIX
-        ownerEmail: session.user.email,
-        ownerRole: session.user.role || "USER",
+        /* OWNER (AUTO) */
+        ownerId: String(session.user.id),
+        ownerRole:
+          session.user.role === "dealer" ||
+          session.user.role === "DEALER"
+            ? "DEALER"
+            : "USER",
 
-        // 🔥 MAGICBRICKS STYLE FLOW
+        /* 🔥 DEFAULT FLOW */
         status: "APPROVED",               // LIVE
         verificationStatus: "UNVERIFIED", // NOT VERIFIED
-        verifiedSource: null,
+        verifiedSource: null,             // later: LIVE_PHOTO / VIDEO
       },
     });
 
     return res.status(200).json({
       ok: true,
-      message: "Property posted successfully (Unverified)",
+      message: "Property posted successfully (Live + Unverified)",
       listingId: listing.id,
     });
   } catch (error) {
     console.error("PROPERTY CREATE ERROR:", error);
+
     return res.status(500).json({
       ok: false,
-      message: error.message,
+      message: "Property save failed",
+      error: error.message,
     });
   }
 }
