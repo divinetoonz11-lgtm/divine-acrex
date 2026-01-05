@@ -1,4 +1,3 @@
-// pages/api/properties/index.js
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
@@ -6,62 +5,63 @@ import { authOptions } from "../auth/[...nextauth]";
 const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ ok: false });
-  }
-
   try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ ok: false });
+    }
+
     const session = await getServerSession(req, res, authOptions);
 
-    if (!session?.user?.email || !session?.user?.id) {
+    if (!session?.user?.email) {
       return res.status(401).json({ ok: false, message: "Unauthorized" });
     }
 
-    const b = req.body || {};
+    const body = req.body || {};
 
+    // ✅ SAFE CREATE (NO FRONTEND TRUST)
     const listing = await prisma.listing.create({
       data: {
-        // 🔐 REQUIRED SAFE FIELDS
-        title: b.propertyType || "Property",
-        category: b.category || "residential",
-        propertyType: b.propertyType || "Property",
+        title: body.propertyType || "Property",
+        category: body.category || "residential",
+        propertyType: body.propertyType || "",
+        furnishing: body.furnishing || null,
 
-        price: Number(b.price || 0),
-        area: Number(b.area || 0),
+        price: Number(body.price || 0),
+        area: Number(body.area || 0),
 
-        state: b.state || "",
-        city: b.city || "",
-        locality: b.locality || "",
-        society: b.society || "",
+        state: body.state || "",
+        city: body.city || "",
+        locality: body.locality || "",
+        society: body.society || "",
 
-        description: b.description || "",
-        mobile: b.mobile || "",
+        floor: body.floor || "",
+        vastu: body.vastu || "",
+        description: body.description || "",
+        mobile: body.mobile || "",
 
-        // ⚠️ IMPORTANT FIX
-        amenities: JSON.stringify(b.amenities || []),
+        amenities: body.amenities || [],
 
-        // 🔑 OWNER (SAFE)
-        ownerId: String(session.user.id),
-        ownerRole: session.user.role === "dealer" ? "DEALER" : "USER",
+        // 🔑 IMPORTANT FIX
+        ownerEmail: session.user.email,
+        ownerRole: session.user.role || "USER",
 
-        // 🔥 LIVE BUT UNVERIFIED
-        status: "APPROVED",
-        verificationStatus: "UNVERIFIED",
+        // 🔥 MAGICBRICKS STYLE FLOW
+        status: "APPROVED",               // LIVE
+        verificationStatus: "UNVERIFIED", // NOT VERIFIED
         verifiedSource: null,
       },
     });
 
     return res.status(200).json({
       ok: true,
-      message: "Property posted (Live + Unverified)",
+      message: "Property posted successfully (Unverified)",
       listingId: listing.id,
     });
   } catch (error) {
     console.error("PROPERTY CREATE ERROR:", error);
     return res.status(500).json({
       ok: false,
-      message: "Property save failed",
-      error: error.message,
+      message: error.message,
     });
   }
 }
