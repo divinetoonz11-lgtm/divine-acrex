@@ -1,187 +1,213 @@
-// pages/admin/properties.jsx
 import { useEffect, useState } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 import AdminGuard from "../../components/AdminGuard";
 
+const LIMIT = 20;
+
+/* ================= ROLE DETECTION ================= */
+function resolveRole(p) {
+  if (p.dealerEmail) return "DEALER";
+  return "USER";
+}
+
+/* ================= KPI CONFIG (12) ================= */
+const KPI = [
+  { key: "total", label: "Total Properties", color: "#0f172a" },
+  { key: "pending", label: "Pending", color: "#f59e0b", status: "pending" },
+  { key: "live", label: "Live", color: "#16a34a", status: "live" },
+  { key: "blocked", label: "Blocked", color: "#dc2626", status: "blocked" },
+
+  { key: "users", label: "User Properties", color: "#0284c7" },
+  { key: "dealers", label: "Dealer Properties", color: "#7c3aed" },
+
+  { key: "verified", label: "Verified", color: "#059669" },
+  { key: "unverified", label: "Unverified", color: "#b45309" },
+
+  { key: "featured", label: "Featured", color: "#2563eb" },
+  { key: "spam", label: "Spam", color: "#991b1b" },
+
+  { key: "today", label: "Added Today", color: "#4338ca" },
+];
+
 function AdminPropertiesPage() {
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [busyId, setBusyId] = useState(null);
-
-  // pagination
-  const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const limit = 20;
 
-  // filter
-  const [status, setStatus] = useState("pending");
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState("all");
+  const [role, setRole] = useState("all");
 
+  const [search, setSearch] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const [actionMap, setActionMap] = useState({});
+
+  /* ================= LOAD ================= */
   useEffect(() => {
-    load(page, status);
-  }, [page, status]);
+    load();
+  }, [page, status, role, search, fromDate, toDate]);
 
-  async function load(p = 1, s = "pending") {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/admin/properties?page=${p}&limit=${limit}&status=${s}`
-      );
-      const data = await res.json();
-      if (res.ok) {
-        setItems(data.properties || []);
-        setTotal(data.total || 0);
-      } else {
-        setItems([]);
-      }
-    } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
+  async function load() {
+    const qs = new URLSearchParams({
+      page,
+      limit: LIMIT,
+      status,
+      role,
+      q: search,
+      from: fromDate,
+      to: toDate,
+    }).toString();
+
+    const res = await fetch(`/api/admin/properties?${qs}`);
+    const data = await res.json();
+
+    if (res.ok) {
+      setItems(data.properties || []);
+      setTotal(data.total || 0);
     }
   }
 
-  async function updateStatus(id, nextStatus) {
-    setBusyId(id);
-    try {
-      const res = await fetch("/api/admin/properties/update-status", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: nextStatus }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setItems(prev =>
-          prev.map(p => (p._id === data.property._id ? data.property : p))
-        );
-      }
-    } finally {
-      setBusyId(null);
+  /* ================= ACTION ================= */
+  async function submitAction(id) {
+    const action = actionMap[id];
+    if (!action) return;
+
+    const res = await fetch("/api/admin/property-action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+
+    const data = await res.json();
+    if (!data.ok) {
+      alert("Action failed");
+      return;
     }
+
+    setActionMap(m => ({ ...m, [id]: "" }));
+    load();
   }
 
-  async function toggleFeatured(id, featured) {
-    setBusyId(id);
-    try {
-      const res = await fetch("/api/admin/properties/feature", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, featured: !featured }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setItems(prev =>
-          prev.map(p => (p._id === data.property._id ? data.property : p))
-        );
-      }
-    } finally {
-      setBusyId(null);
-    }
-  }
+  /* ================= KPI COUNTS ================= */
+  const todayStr = new Date().toDateString();
 
-  const pages = Math.ceil(total / limit);
+  const kpi = {
+    total,
+    pending: items.filter(p => p.status === "pending").length,
+    live: items.filter(p => p.status === "live").length,
+    blocked: items.filter(p => p.status === "blocked").length,
+
+    users: items.filter(p => !p.dealerEmail).length,
+    dealers: items.filter(p => p.dealerEmail).length,
+
+    verified: items.filter(p => p.verified).length,
+    unverified: items.filter(p => !p.verified).length,
+
+    featured: items.filter(p => p.featured).length,
+    spam: items.filter(p => p.spam).length,
+
+    today: items.filter(
+      p => p.createdAt &&
+      new Date(p.createdAt).toDateString() === todayStr
+    ).length,
+  };
+
+  const pages = Math.ceil(total / LIMIT);
 
   return (
     <AdminLayout>
-      <div style={{ maxWidth: 1500 }}>
-        {/* HEADER */}
-        <div style={headerRow}>
-          <div>
-            <h1 style={h1}>Property Management</h1>
-            <p style={sub}>Approve, block, feature listings</p>
-          </div>
+      <div style={{ maxWidth: 1600 }}>
 
-          <select
-            value={status}
-            onChange={e => {
-              setPage(1);
-              setStatus(e.target.value);
-            }}
-            style={select}
-          >
+        <h1 style={h1}>Property Management</h1>
+
+        {/* ================= KPI ================= */}
+        <div style={kpiGrid}>
+          {KPI.map(k => (
+            <div
+              key={k.key}
+              onClick={() => k.status && setStatus(k.status)}
+              style={{ ...kpiCard, borderLeft: `6px solid ${k.color}` }}
+            >
+              <div style={{ fontSize: 26, fontWeight: 900, color: k.color }}>
+                {kpi[k.key]}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ================= FILTER BAR ================= */}
+        <div style={filterBar}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name / email / title / city"
+            style={input}
+          />
+
+          <select value={status} onChange={e => setStatus(e.target.value)}>
+            <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="live">Live</option>
             <option value="blocked">Blocked</option>
-            <option value="featured">Featured</option>
-            <option value="all">All</option>
           </select>
+
+          <select value={role} onChange={e => setRole(e.target.value)}>
+            <option value="all">All Roles</option>
+            <option value="user">User</option>
+            <option value="dealer">Dealer</option>
+          </select>
+
+          <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} />
+          <input type="date" value={toDate} onChange={e => setToDate(e.target.value)} />
         </div>
 
-        {/* TABLE */}
+        {/* ================= TABLE ================= */}
         <div style={card}>
           <table style={table}>
-            <thead style={{ background: "#f8fafc" }}>
+            <thead>
               <tr>
-                <th style={th}>Property</th>
-                <th style={th}>Dealer</th>
-                <th style={th}>Status</th>
-                <th style={th}>Actions</th>
+                <th>Property</th>
+                <th>Owner / Dealer</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
-
             <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={4} style={empty}>Loading properties…</td>
-                </tr>
-              )}
-
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={4} style={empty}>No properties found</td>
-                </tr>
-              )}
-
               {items.map(p => (
-                <tr key={p._id} style={row}>
-                  <td style={td}>
-                    <div style={propWrap}>
-                      <div style={propTitle}>{p.title || "Untitled Property"}</div>
-                      <div style={propMeta}>
-                        {p.city || "-"}
-                        {p.price ? ` • ₹${p.price}` : ""}
-                      </div>
-                      {p.featured && <span style={chipBlue}>FEATURED</span>}
-                    </div>
+                <tr key={p._id}>
+                  <td>
+                    <b>{p.title}</b>
+                    <div style={muted}>{p.city} • ₹{p.price}</div>
                   </td>
-
-                  <td style={td}>
-                    <div>{p.dealerEmail || "-"}</div>
-                    <div style={mutedSmall}>
-                      {p.createdAt
-                        ? new Date(p.createdAt).toLocaleDateString()
-                        : "-"}
-                    </div>
+                  <td>
+                    <div>{p.ownerName || p.dealerName || "N/A"}</div>
+                    <div style={muted}>{p.ownerEmail || p.dealerEmail || "N/A"}</div>
                   </td>
+                  <td>{resolveRole(p)}</td>
+                  <td>{p.status?.toUpperCase()}</td>
+                  <td>
+                    <select
+                      value={actionMap[p._id] || ""}
+                      onChange={e =>
+                        setActionMap(m => ({ ...m, [p._id]: e.target.value }))
+                      }
+                    >
+                      <option value="">Select</option>
+                      <option value="approve">Approve</option>
+                      <option value="block">Block</option>
+                      <option value="spam">Spam</option>
+                    </select>
 
-                  <td style={td}>
-                    {p.status === "pending" && <span style={chipAmber}>PENDING</span>}
-                    {p.status === "live" && <span style={chipGreen}>LIVE</span>}
-                    {p.status === "blocked" && <span style={chipRed}>BLOCKED</span>}
-                  </td>
-
-                  <td style={td}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        disabled={busyId === p._id}
-                        onClick={() =>
-                          updateStatus(
-                            p._id,
-                            p.status === "live" ? "blocked" : "live"
-                          )
-                        }
-                        style={btnPrimary}
-                      >
-                        {p.status === "live" ? "Block" : "Approve"}
-                      </button>
-
-                      <button
-                        disabled={busyId === p._id}
-                        onClick={() => toggleFeatured(p._id, p.featured)}
-                        style={btnSecondary}
-                      >
-                        {p.featured ? "Unfeature" : "Feature"}
-                      </button>
-                    </div>
+                    <button
+                      disabled={!actionMap[p._id]}
+                      onClick={() => submitAction(p._id)}
+                      style={submitBtn}
+                    >
+                      Submit
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -189,23 +215,15 @@ function AdminPropertiesPage() {
           </table>
         </div>
 
-        {/* PAGINATION */}
-        {pages > 1 && (
-          <div style={pager}>
-            {Array.from({ length: pages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i + 1)}
-                style={{
-                  ...pageBtn,
-                  ...(page === i + 1 ? pageBtnActive : {}),
-                }}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* ================= PAGINATION ================= */}
+        <div style={pager}>
+          {Array.from({ length: pages }).map((_, i) => (
+            <button key={i} onClick={() => setPage(i + 1)}>
+              {i + 1}
+            </button>
+          ))}
+        </div>
+
       </div>
     </AdminLayout>
   );
@@ -219,70 +237,49 @@ export default function Guarded() {
   );
 }
 
-/* ===== STYLES ===== */
+/* ================= STYLES ================= */
+const h1 = { fontSize: 28, fontWeight: 900, marginBottom: 12 };
 
-const headerRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 16,
+const kpiGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+  gap: 14,
+  marginBottom: 24,
 };
-const h1 = { fontSize: 26, fontWeight: 800 };
-const sub = { color: "#64748b", marginTop: 4 };
-const select = { padding: 8, borderRadius: 8, border: "1px solid #e5e7eb" };
 
-const card = {
+const kpiCard = {
   background: "#fff",
-  borderRadius: 14,
-  boxShadow: "0 8px 24px rgba(15,23,42,.06)",
-  overflowX: "auto",
+  borderRadius: 16,
+  padding: 16,
+  cursor: "pointer",
+  boxShadow: "0 8px 24px rgba(15,23,42,.08)",
 };
 
-const table = { width: "100%", minWidth: 1200, borderCollapse: "collapse" };
-const th = { textAlign: "left", padding: "14px 16px", fontSize: 13, color: "#475569" };
-const td = { padding: "14px 16px", verticalAlign: "middle" };
-const row = { borderBottom: "1px solid #eef2f6" };
-const empty = { padding: 24, textAlign: "center", color: "#64748b" };
-
-const propWrap = { display: "flex", flexDirection: "column", gap: 6 };
-const propTitle = { fontWeight: 700 };
-const propMeta = { fontSize: 13, color: "#64748b" };
-const mutedSmall = { fontSize: 12, color: "#94a3b8" };
-
-const chipBase = {
-  display: "inline-block",
-  padding: "4px 8px",
-  borderRadius: 999,
-  fontSize: 11,
-  fontWeight: 800,
+const filterBar = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  marginBottom: 14,
 };
-const chipAmber = { ...chipBase, background: "#fef3c7", color: "#92400e" };
-const chipGreen = { ...chipBase, background: "#dcfce7", color: "#166534" };
-const chipRed = { ...chipBase, background: "#fee2e2", color: "#991b1b" };
-const chipBlue = { ...chipBase, background: "#e0e7ff", color: "#1e40af" };
 
-const btnPrimary = {
-  padding: "8px 12px",
+const input = {
+  padding: 10,
+  width: 320,
+  borderRadius: 10,
+  border: "1px solid #e5e7eb",
+};
+
+const card = { background: "#fff", borderRadius: 16, overflowX: "auto" };
+const table = { width: "100%", minWidth: 1200 };
+const muted = { fontSize: 12, color: "#64748b" };
+const pager = { marginTop: 16, display: "flex", gap: 6 };
+
+const submitBtn = {
+  marginLeft: 6,
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "none",
   background: "#2563eb",
   color: "#fff",
-  border: "none",
-  borderRadius: 8,
   cursor: "pointer",
 };
-const btnSecondary = {
-  padding: "8px 12px",
-  background: "#1e3a8a",
-  color: "#fff",
-  border: "none",
-  borderRadius: 8,
-  cursor: "pointer",
-};
-
-const pager = { marginTop: 18, display: "flex", gap: 6 };
-const pageBtn = {
-  padding: "6px 12px",
-  borderRadius: 8,
-  border: "1px solid #e5e7eb",
-  background: "#f9fafb",
-};
-const pageBtnActive = { background: "#2563eb", color: "#fff" };

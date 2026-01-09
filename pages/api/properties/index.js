@@ -1,82 +1,105 @@
-import { PrismaClient } from "@prisma/client";
+import clientPromise from "../../../lib/mongodb";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 
-const prisma = new PrismaClient();
+/*
+FINAL RULE APPLIED:
+- POST  → create property
+- GET   → list LIVE properties
+- Role property me store nahi
+- Listing filter = status === "live" only
+*/
 
 export default async function handler(req, res) {
-  /* ================= ONLY POST ================= */
-  if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, message: "Method not allowed" });
+  const client = await clientPromise;
+  const db = client.db();
+
+  /* ================= GET : PUBLIC LISTING ================= */
+  if (req.method === "GET") {
+    try {
+      const items = await db
+        .collection("properties")
+        .find({
+          status: "live",
+          isDeleted: { $ne: true },
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      return res.json({ ok: true, data: items });
+    } catch (e) {
+      console.error("PROPERTY LIST ERROR:", e);
+      return res.status(500).json({ ok: false });
+    }
   }
 
-  try {
-    /* ================= AUTH ================= */
-    const session = await getServerSession(req, res, authOptions);
+  /* ================= POST : CREATE PROPERTY ================= */
+  if (req.method === "POST") {
+    try {
+      const session = await getServerSession(req, res, authOptions);
+      if (!session || !session.user || !session.user.email) {
+        return res.status(401).json({ ok: false, message: "Unauthorized" });
+      }
 
-    if (!session?.user?.email || !session?.user?.id) {
-      return res.status(401).json({ ok: false, message: "Unauthorized" });
-    }
+      const b = req.body || {};
+      if (!b.title || !b.category || !b.city || !b.price) {
+        return res.status(400).json({ ok: false, message: "Missing fields" });
+      }
 
-    const b = req.body || {};
+      // 🔒 ROLE ONLY FROM USERS DB
+      const role = (session.user.role || "").toLowerCase();
+      const isDealer = role === "dealer";
 
-    /* ================= SAFE DATA ================= */
-    const listing = await prisma.listing.create({
-      data: {
-        /* BASIC */
-        title: b.propertyType || "Property",
-        category: b.category || "residential",
-        propertyType: b.propertyType || "Property",
-        furnishing: b.furnishing || null,
+      const property = {
+        title: b.title,
+        category: b.category,
+        propertyType: b.propertyType || "",
+        furnishing: b.furnishing || "",
+        listingFor: b.listingFor || "",
 
-        /* PRICE / AREA */
-        price: Number(b.price || 0),
+        price: Number(b.price),
         area: Number(b.area || 0),
+        bhk: b.bhk || "",
 
-        /* LOCATION (🔥 MAIN FIX) */
-        state: b.stateName || b.state || "",
-        city: b.city || "",
+        state: b.state || "",
+        city: b.city,
         locality: b.locality || "",
         society: b.society || "",
 
-        /* EXTRA */
         floor: b.floor || "",
         vastu: b.vastu || "",
         description: b.description || "",
-        mobile: b.mobile || "",
+        amenities: Array.isArray(b.amenities) ? b.amenities : [],
 
-        /* AMENITIES (SAFE FOR ANY SCHEMA) */
-        amenities: Array.isArray(b.amenities)
-          ? b.amenities.join(",")
-          : "",
+        photosCount: Number(b.photosCount || 0),
+        videoName: b.videoName || null,
 
-        /* OWNER (AUTO) */
-        ownerId: String(session.user.id),
-        ownerRole:
-          session.user.role === "dealer" ||
-          session.user.role === "DEALER"
-            ? "DEALER"
-            : "USER",
+        // 🔑 SINGLE SOURCE
+        ownerEmail: isDealer ? null : session.user.email,
+        ownerName: isDealer ? null : session.user.name || "",
 
-        /* 🔥 DEFAULT FLOW */
-        status: "APPROVED",               // LIVE
-        verificationStatus: "UNVERIFIED", // NOT VERIFIED
-        verifiedSource: null,             // later: LIVE_PHOTO / VIDEO
-      },
-    });
+        dealerEmail: isDealer ? session.user.email : null,
+        dealerName: isDealer ? session.user.name || "" : null,
 
-    return res.status(200).json({
-      ok: true,
-      message: "Property posted successfully (Live + Unverified)",
-      listingId: listing.id,
-    });
-  } catch (error) {
-    console.error("PROPERTY CREATE ERROR:", error);
+        // 🔑 ADMIN FLOW
+        status: "pending",
+        isDeleted: false,
 
-    return res.status(500).json({
-      ok: false,
-      message: "Property save failed",
-      error: error.message,
-    });
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const result = await db.collection("properties").insertOne(property);
+
+      return res.status(200).json({
+        ok: true,
+        id: result.insertedId,
+      });
+    } catch (err) {
+      console.error("PROPERTY SAVE ERROR:", err);
+      return res.status(500).json({ ok: false });
+    }
   }
+
+  return res.status(405).json({ ok: false });
 }

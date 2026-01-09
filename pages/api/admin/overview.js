@@ -1,120 +1,64 @@
-/*
-ADMIN OVERVIEW – FINAL (DEALER KPIs FIXED)
-✔ Executive snapshot API
-✔ Dummy fallback
-✔ MongoDB auto override
-✔ Dealer Management KPIs added
-✔ UI SAFE (no change required)
-*/
+// pages/api/admin/overview.js
+// FINAL PURE API – NO REACT, NO JSX, NO useState
 
 import clientPromise from "../../../lib/mongodb";
 
 export default async function handler(req, res) {
   try {
-    /* =====================================================
-       🔹 DUMMY FALLBACK (EXECUTIVE SNAPSHOT)
-       ===================================================== */
-    const DUMMY = {
-      stats: {
-        users: 0,
-        dealers: 0,
-        dealerRequests: 0,
-        activeDealers: 0,
-        blockedDealers: 0,
-        kycPending: 0,
-        properties: 0,
-        revenue: 0,
-        subscriptions: 0,
-        activeListings: 0,
-        pendingListings: 0,
-        enquiries: 0,
-      },
-      graphs: {
-        revenueTrend: [],
-        userGrowth: [],
-        subscriptions: [],
-        listings: [],
-      },
-    };
+    const { range = "monthly" } = req.query;
 
-    let LIVE = null;
+    const client = await clientPromise;
+    const db = client.db();
 
-    try {
-      const client = await clientPromise;
-      const db = client.db();
+    let format = "%Y-%m";
+    if (range === "daily") format = "%Y-%m-%d";
+    if (range === "yearly") format = "%Y";
 
-      /* =====================================================
-         🔹 LIVE COUNTS (CRITICAL FIX)
-         ===================================================== */
-      const [
-        users,
-        totalDealers,
-        dealerRequests,
-        activeDealers,
-        blockedDealers,
-        kycPending,
-        properties,
-        subscriptions,
-        activeListings,
-        pendingListings,
-        enquiries,
-        revenueAgg,
-      ] = await Promise.all([
-        db.collection("users").countDocuments(),
-        db.collection("users").countDocuments({ role: "dealer" }),
-        db.collection("users").countDocuments({ status: "pending" }), // 🔑 REQUESTS
-        db.collection("users").countDocuments({
-          role: "dealer",
-          status: "active",
-        }),
-        db.collection("users").countDocuments({
-          role: "dealer",
-          status: "blocked",
-        }),
-        db.collection("users").countDocuments({
-          kycStatus: "pending",
-        }),
-        db.collection("properties").countDocuments(),
-        db.collection("subscriptions").countDocuments({ status: "active" }),
-        db.collection("properties").countDocuments({ status: "live" }),
-        db.collection("properties").countDocuments({ status: "pending" }),
-        db.collection("enquiries").countDocuments(),
-        db.collection("payments")
-          .aggregate([{ $group: { _id: null, total: { $sum: "$amount" } } }])
-          .toArray(),
-      ]);
-
-      LIVE = {
-        stats: {
-          users,
-          dealers: totalDealers,
-          dealerRequests,     // 🔑 FIXED
-          activeDealers,      // 🔑 FIXED
-          blockedDealers,     // 🔑 FIXED
-          kycPending,         // 🔑 FIXED
-          properties,
-          revenue: revenueAgg[0]?.total || 0,
-          subscriptions,
-          activeListings,
-          pendingListings,
-          enquiries,
+    const listingsAgg = await db.collection("properties").aggregate(
+      [
+        {
+          $match: {
+            verificationStatus: "VERIFIED_LIVE",
+            createdAt: { $exists: true },
+          },
         },
-        graphs: DUMMY.graphs, // graphs unchanged
-      };
-    } catch (dbErr) {
-      console.warn("Admin overview DB fallback used");
-    }
+        {
+          $project: {
+            label: {
+              $dateToString: {
+                format,
+                date: "$createdAt",
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$label",
+            value: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ],
+      { allowDiskUse: true }
+    ).toArray();
 
-    return res.json({
+    res.status(200).json({
       ok: true,
-      source: LIVE ? "live" : "dummy",
-      data: LIVE || DUMMY,
+      data: {
+        graphs: {
+          listings: listingsAgg.map(x => ({
+            label: x._id,
+            value: x.value,
+          })),
+        },
+      },
     });
-  } catch (e) {
-    console.error("ADMIN OVERVIEW API ERROR:", e);
-    return res.status(500).json({
+  } catch (err) {
+    console.error("OVERVIEW API ERROR:", err);
+    res.status(500).json({
       ok: false,
-      message: "Server error",
+      data: { graphs: { listings: [] } },
     });
   }
 }

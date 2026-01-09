@@ -18,6 +18,7 @@ const PEOPLE_CAPACITY_OPTIONS = ["Any", "50-100", "100-200", "200-300", "300-500
 export default function PostProperty() {
   // common
   const [postedBy, setPostedBy] = useState("");
+  const [listingFor, setListingFor] = useState(""); // Sell / Rent / Lease
   const [category, setCategory] = useState(""); // residential / commercial / hotel
   const [propertyType, setPropertyType] = useState("");
   const [furnishing, setFurnishing] = useState("");
@@ -134,28 +135,37 @@ export default function PostProperty() {
   }
 
   // basic validation
-  function validate() {
-    if (!postedBy) { setMsg("Posted by चुने (Owner/Dealer/Builder/Broker)।"); return false; }
-    if (!category) { setMsg("Category चुने।"); return false; }
-    if (!propertyType && category !== "") { setMsg("Property Type चुने।"); return false; }
-    if (!price) { setMsg("Price भरें।"); return false; }
-    if (!city) { setMsg("City भरें।"); return false; }
-    if (!mobile) { setMsg("Contact mobile डालें।"); return false; }
-    // hotel-specific checks
-    if (category === "hotel" && !hotelType) { setMsg("Hotel type चुनें।"); return false; }
-    return true;
-  }
+
+  
+function validate() {
+  if (!postedBy) { setMsg("Posted by चुने (Owner/Dealer/Builder)।"); return false; }
+  if (!listingFor) { setMsg("Sell / Rent / Lease चुने।"); return false; }
+  if (!category) { setMsg("Category चुने।"); return false; }
+  if (!propertyType && category !== "") { setMsg("Property Type चुने।"); return false; }
+  if (!price) { setMsg("Price भरें।"); return false; }
+  if (!city) { setMsg("City भरें।"); return false; }
+  if (!mobile) { setMsg("Contact mobile डालें।"); return false; }
+  if (category === "hotel" && !hotelType) { setMsg("Hotel type चुनें।"); return false; }
+  return true;
+}
 
   async function handleSubmit(e) {
-    e.preventDefault();
-    if (!validate()) return;
-    setSaving(true);
-    setMsg("");
+  e.preventDefault();
+
+  if (!validate()) {
+    setSaving(false);   // 🔥 IMPORTANT FIX
+    return;
+  }
+
+  setSaving(true);
+  setMsg("");
+
 
     try {
       // NOTE: file uploads not implemented here (use multipart/S3). This sends metadata only.
-      const payload = {
-        postedBy, category, propertyType, furnishing, price: Number(price || 0),
+        const payload = {
+        title: `${propertyType} in ${city}`,
+        postedBy, listingFor,  category, propertyType, furnishing, price: Number(price || 0),
         bhk, area: Number(area || 0), state: stateName, city, locality, society,
         floor, vastu, description, mobile, amenities,
         commercial: category === "commercial" ? { commBuiltUp, commCarpet, commFrontage, commFloorLevel, commParkingCapacity } : null,
@@ -174,8 +184,11 @@ export default function PostProperty() {
       if (!res.ok) throw new Error("Save failed");
 
       setMsg("Property posted successfully!");
-      // reset if needed
-      setTimeout(() => Router.push("/"), 900);
+      setTimeout(() => {
+      if (postedBy === "Dealer") Router.push("/dealer/dashboard");
+     else Router.push("/user/dashboard");
+}, 900);
+
     } catch (err) {
       console.error(err);
       setMsg("Error saving property. Console देखें.");
@@ -206,11 +219,24 @@ export default function PostProperty() {
             <div style={{ background: "#f9fbff", padding: 12, borderRadius: 10, border: "1px solid #e3ebff", marginBottom: 12 }}>
               <h3 style={{ margin: "0 0 8px 0", color: "#002b80" }}>Basic Details</h3>
 
-              <label style={lbl}>Posted By *</label>
-              <select value={postedBy} onChange={e => setPostedBy(e.target.value)} style={inpt}>
-                <option value="">Select</option>
-                <option>Owner</option><option>Dealer</option><option>Builder</option><option>Broker</option>
-              </select>
+             <label style={lbl}>Posted By *</label>
+<select value={postedBy} onChange={e => setPostedBy(e.target.value)} style={inpt}>
+  <option value="">Select</option>
+  <option>Owner</option>
+  <option>Dealer</option>
+  <option>Builder</option>
+  <option>Broker</option>
+</select>
+
+{/* 🔽 NEW BOX – 3rd POSITION */}
+<label style={lbl}>Listing For *</label>
+<select value={listingFor} onChange={e => setListingFor(e.target.value)} style={inpt}>
+  <option value="">Select</option>
+  <option value="sell">Sell</option>
+  <option value="rent">Rent</option>
+  <option value="lease">Lease</option>
+</select>
+
 
               <label style={lbl}>Property Category *</label>
               <select value={category} onChange={e => { setCategory(e.target.value); setPropertyType(""); }} style={inpt}>
@@ -518,3 +544,5 @@ function amenityLabelStyle(active) {
     cursor: "pointer"
   };
 }
+
+

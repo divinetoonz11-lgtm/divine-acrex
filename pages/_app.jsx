@@ -4,6 +4,8 @@ import "../styles/admin.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
+import Head from "next/head"; // ✅ ADDED (REQUIRED)
+
 import { SessionProvider, useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useEffect } from "react";
@@ -87,6 +89,11 @@ export default function MyApp({ Component, pageProps }) {
 
   return (
     <SessionProvider session={pageProps.session}>
+      {/* ✅ VIEWPORT META (CORRECT PLACE) */}
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+
       <LanguageProvider>
         {/* 🔒 SAFE ROLE SYNC */}
         <RoleSyncGuard />

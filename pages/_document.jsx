@@ -4,9 +4,8 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
-        {/* Keep document clean – no GA, no chat scripts */}
+        {/* Keep document clean – no viewport here */}
         <meta charSet="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <body>

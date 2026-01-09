@@ -1,48 +1,76 @@
-// pages/admin/enquiries.jsx
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
+import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 import AdminGuard from "../../components/AdminGuard";
 
-function AdminEnquiriesPage() {
-  const router = useRouter();
-  const tab = router.query.tab || "all";
+/*
+PREMIUM ENQUIRIES MANAGEMENT
+✔ Pagination
+✔ Status: new | responded | closed | spam
+✔ CSV Export
+✔ Filters (status, ownerType)
+✔ Property link
+✔ User / Dealer visibility
+*/
 
-  const [leads, setLeads] = useState([]);
+const STATUS = ["new", "responded", "closed", "spam"];
+
+function AdminEnquiriesPage() {
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [viewItem, setViewItem] = useState(null);
 
-  useEffect(() => {
-    loadLeads();
-  }, []);
+  // filters
+  const [status, setStatus] = useState("all");
+  const [ownerType, setOwnerType] = useState("all");
 
-  async function loadLeads() {
+  // pagination
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
+
+  useEffect(() => {
+    load();
+  }, [page, status, ownerType]);
+
+  async function load() {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/enquiries");
+      const qs = new URLSearchParams({
+        page,
+        limit,
+        status,
+        ownerType,
+      }).toString();
+
+      const res = await fetch(`/api/admin/enquiries?${qs}`);
       const data = await res.json();
-      if (res.ok) setLeads(data.leads || []);
-      else setLeads([]);
+
+      if (res.ok) {
+        setItems(data.items || []);
+        setTotal(data.total || 0);
+      } else {
+        setItems([]);
+      }
     } catch {
-      setLeads([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function markRead(id, read) {
+  async function updateStatus(id, nextStatus) {
     setBusyId(id);
     try {
-      const res = await fetch("/api/admin/enquiries/update", {
+      const res = await fetch("/api/admin/enquiries/update-status", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, read }),
+        body: JSON.stringify({ id, status: nextStatus }),
       });
       const d = await res.json();
       if (res.ok) {
-        setLeads((prev) =>
-          prev.map((l) => (l._id === d.lead._id ? d.lead : l))
+        setItems(prev =>
+          prev.map(i => (i._id === d.item._id ? d.item : i))
         );
       }
     } finally {
@@ -50,7 +78,7 @@ function AdminEnquiriesPage() {
     }
   }
 
-  async function deleteLead(id) {
+  async function remove(id) {
     if (!confirm("Delete this enquiry permanently?")) return;
     setBusyId(id);
     try {
@@ -60,85 +88,156 @@ function AdminEnquiriesPage() {
         body: JSON.stringify({ id }),
       });
       if (res.ok) {
-        setLeads((prev) => prev.filter((l) => l._id !== id));
+        setItems(prev => prev.filter(i => i._id !== id));
       }
     } finally {
       setBusyId(null);
     }
   }
 
-  const filtered = leads.filter((l) => {
-    if (tab === "unread") return !l.read;
-    if (tab === "read") return l.read;
-    return true;
-  });
+  /* ================= CSV EXPORT ================= */
+
+  function exportCSV() {
+    const headers = [
+      "Name",
+      "Email",
+      "Phone",
+      "Status",
+      "OwnerType",
+      "PropertyTitle",
+      "Message",
+      "CreatedAt",
+    ];
+
+    const rows = items.map(i => [
+      i.name,
+      i.email,
+      i.phone,
+      i.status,
+      i.ownerType,
+      i.propertyTitle,
+      (i.message || "").replace(/\n/g, " "),
+      new Date(i.createdAt).toLocaleString(),
+    ]);
+
+    const csv =
+      headers.join(",") +
+      "\n" +
+      rows.map(r => r.map(v => `"${v || ""}"`).join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "enquiries.csv";
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  /* ================= KPI ================= */
+
+  const kpi = useMemo(() => {
+    const map = { all: total };
+    STATUS.forEach(s => {
+      map[s] = items.filter(i => i.status === s).length;
+    });
+    return map;
+  }, [items, total]);
+
+  const pages = Math.ceil(total / limit);
 
   return (
-    <AdminLayout
-      topTabs={[
-        { key: "all", label: "All Enquiries", default: true },
-        { key: "unread", label: "Unread" },
-        { key: "read", label: "Read" },
-      ]}
-    >
-      <div style={{ maxWidth: 1300 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 16 }}>
-          Enquiries
-        </h1>
+    <AdminLayout>
+      <div style={{ maxWidth: 1400 }}>
+        <h1 style={h1}>Enquiries Management</h1>
 
+        {/* KPI */}
+        <div style={kpiGrid}>
+          <Kpi title="All" value={kpi.all} onClick={() => { setPage(1); setStatus("all"); }} />
+          <Kpi title="New" value={kpi.new} onClick={() => { setPage(1); setStatus("new"); }} />
+          <Kpi title="Responded" value={kpi.responded} onClick={() => { setPage(1); setStatus("responded"); }} />
+          <Kpi title="Closed" value={kpi.closed} onClick={() => { setPage(1); setStatus("closed"); }} />
+          <Kpi title="Spam" value={kpi.spam} onClick={() => { setPage(1); setStatus("spam"); }} />
+        </div>
+
+        {/* FILTER BAR */}
+        <div style={filterBar}>
+          <select value={status} onChange={e => { setPage(1); setStatus(e.target.value); }}>
+            <option value="all">All Status</option>
+            {STATUS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <select value={ownerType} onChange={e => { setPage(1); setOwnerType(e.target.value); }}>
+            <option value="all">All Owners</option>
+            <option value="user">User</option>
+            <option value="dealer">Dealer</option>
+          </select>
+
+          <button onClick={exportCSV} style={btnSecondary}>
+            Export CSV
+          </button>
+        </div>
+
+        {/* TABLE */}
         <div style={card}>
-          <table style={{ width: "100%", minWidth: 1000, borderCollapse: "collapse" }}>
-            <thead style={{ background: "#f8fafc" }}>
+          <table style={table}>
+            <thead>
               <tr>
-                <th style={th}>Name</th>
-                <th style={th}>Email</th>
-                <th style={th}>Phone</th>
-                <th style={th}>Property</th>
-                <th style={th}>Status</th>
-                <th style={th}>Actions</th>
+                <th>Name</th>
+                <th>Contact</th>
+                <th>Property</th>
+                <th>Owner</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} style={empty}>Loading enquiries…</td>
+                  <td colSpan={6} style={empty}>Loading…</td>
                 </tr>
               )}
 
-              {!loading && filtered.length === 0 && (
+              {!loading && items.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={empty}>No enquiries found</td>
+                  <td colSpan={6} style={empty}>No enquiries</td>
                 </tr>
               )}
 
-              {filtered.map((l) => (
-                <tr key={l._id} style={{ borderBottom: "1px solid #eef2f6" }}>
-                  <td style={td}>{l.name}</td>
-                  <td style={td}>{l.email}</td>
-                  <td style={td}>{l.phone}</td>
-                  <td style={td}>{l.propertyTitle || "-"}</td>
-                  <td style={td}>{l.read ? "Read" : "Unread"}</td>
-                  <td style={td}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button onClick={() => setViewItem(l)} style={btnSmall}>
-                        View
-                      </button>
+              {items.map(i => (
+                <tr key={i._id}>
+                  <td>{i.name}</td>
+                  <td>
+                    {i.email}<br />{i.phone}
+                  </td>
+                  <td>
+                    {i.propertyTitle || "-"}<br />
+                    {i.propertyId && (
+                      <a href={`/property/${i.propertyId}`} target="_blank">
+                        View Property
+                      </a>
+                    )}
+                  </td>
+                  <td>{i.ownerType}</td>
+                  <td>{i.status}</td>
+                  <td>
+                    <button onClick={() => setViewItem(i)} style={btnSmall}>View</button>{" "}
+                    {STATUS.map(s => (
                       <button
-                        disabled={busyId === l._id}
-                        onClick={() => markRead(l._id, !l.read)}
+                        key={s}
+                        disabled={busyId === i._id}
+                        onClick={() => updateStatus(i._id, s)}
                         style={btnSmall}
                       >
-                        {l.read ? "Mark Unread" : "Mark Read"}
+                        {s}
                       </button>
-                      <button
-                        disabled={busyId === l._id}
-                        onClick={() => deleteLead(l._id)}
-                        style={btnDanger}
-                      >
-                        Delete
-                      </button>
-                    </div>
+                    ))}{" "}
+                    <button onClick={() => remove(i._id)} style={btnDanger}>
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -146,20 +245,35 @@ function AdminEnquiriesPage() {
           </table>
         </div>
 
+        {/* PAGINATION */}
+        {pages > 1 && (
+          <div style={pager}>
+            {Array.from({ length: pages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i + 1)}
+                style={{
+                  ...pageBtn,
+                  ...(page === i + 1 ? pageBtnActive : {}),
+                }}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* VIEW MODAL */}
         {viewItem && (
           <div style={modalOuter} onClick={() => setViewItem(null)}>
-            <div style={modalBox} onClick={(e) => e.stopPropagation()}>
+            <div style={modalBox} onClick={e => e.stopPropagation()}>
               <h3>Enquiry Details</h3>
               <p><b>Name:</b> {viewItem.name}</p>
               <p><b>Email:</b> {viewItem.email}</p>
               <p><b>Phone:</b> {viewItem.phone}</p>
-              <p><b>Property:</b> {viewItem.propertyTitle}</p>
+              <p><b>Status:</b> {viewItem.status}</p>
               <p><b>Message:</b> {viewItem.message || "-"}</p>
-              <div style={{ textAlign: "right", marginTop: 12 }}>
-                <button style={btnCancel} onClick={() => setViewItem(null)}>
-                  Close
-                </button>
-              </div>
+              <button onClick={() => setViewItem(null)} style={btnSecondary}>Close</button>
             </div>
           </div>
         )}
@@ -176,54 +290,34 @@ export default function Guarded() {
   );
 }
 
-/* ===== STYLES ===== */
-const card = {
-  background: "#fff",
-  borderRadius: 12,
-  boxShadow: "0 6px 20px rgba(15,23,42,.06)",
-  overflowX: "auto",
-};
-const th = { textAlign: "left", padding: "12px 14px", fontSize: 13, color: "#475569" };
-const td = { padding: "12px 14px", fontSize: 14 };
-const empty = { padding: 24, textAlign: "center", color: "#64748b" };
+/* ================= UI ================= */
 
-const btnSmall = {
-  padding: "6px 10px",
-  background: "#1e3a8a",
-  color: "#fff",
-  borderRadius: 6,
-  border: "none",
-  cursor: "pointer",
-};
-const btnDanger = {
-  padding: "6px 10px",
-  background: "#ef4444",
-  color: "#fff",
-  borderRadius: 6,
-  border: "none",
-  cursor: "pointer",
-};
-const btnCancel = {
-  padding: "6px 12px",
-  background: "#e5e7eb",
-  borderRadius: 6,
-  border: "none",
-  cursor: "pointer",
-};
+function Kpi({ title, value, onClick }) {
+  return (
+    <div onClick={onClick} style={kpiCard}>
+      <div style={{ fontSize: 22, fontWeight: 900 }}>{value}</div>
+      <div style={{ fontSize: 13 }}>{title}</div>
+    </div>
+  );
+}
 
-const modalOuter = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(0,0,0,0.45)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 1200,
-};
-const modalBox = {
-  width: "min(600px, 98%)",
-  background: "#fff",
-  borderRadius: 10,
-  padding: 18,
-  boxShadow: "0 6px 32px rgba(16,24,40,0.18)",
-};
+const h1 = { fontSize: 28, fontWeight: 900, marginBottom: 16 };
+const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, marginBottom: 16 };
+const kpiCard = { background: "#fff", padding: 14, borderRadius: 12, cursor: "pointer", textAlign: "center" };
+
+const filterBar = { display: "flex", gap: 10, marginBottom: 14 };
+
+const card = { background: "#fff", borderRadius: 12, overflowX: "auto" };
+const table = { width: "100%", minWidth: 1200, borderCollapse: "collapse" };
+const empty = { padding: 24, textAlign: "center" };
+
+const btnSmall = { padding: "4px 8px", margin: 2 };
+const btnDanger = { padding: "4px 8px", background: "#ef4444", color: "#fff" };
+const btnSecondary = { padding: "6px 12px" };
+
+const pager = { marginTop: 16, display: "flex", gap: 6 };
+const pageBtn = { padding: "6px 12px" };
+const pageBtnActive = { background: "#2563eb", color: "#fff" };
+
+const modalOuter = { position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", display: "flex", alignItems: "center", justifyContent: "center" };
+const modalBox = { background: "#fff", padding: 18, borderRadius: 10, width: 520 };

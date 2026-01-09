@@ -24,22 +24,20 @@ const MENU = [
     items: [
       ["Dealers", "/admin/dealers"],
       ["Dealer Promotions", "/admin/dealer-promotions"],
-      ["Dealer Referrals", "/admin/dealer-referrals"],
     ],
   },
+
+  /* ================= PROPERTY MANAGEMENT (PROFESSIONAL) ================= */
   {
     title: "PROPERTY MANAGEMENT",
     items: [
-      ["All Properties", "/admin/properties"],
-      ["Pending Listings", "/admin/pending"],
-      ["Featured Listings", "/admin/featured"],
-      ["Boosted Listings", "/admin/boosted"],
-      ["Property Filters", "/admin/filters"],
-      ["Enquiries", "/admin/enquiries"],
-      ["Property Reports", "/admin/reports"],
-      ["Spam / Abuse", "/admin/spam"],
+      ["Overview", "/admin/property-overview"],          // 🔥 NEW PAGE
+      ["All Properties", "/admin/properties"],           // 🔥 EXISTING property.jsx
+      ["Insights & Reports", "/admin/property-insights"],// 🔥 12 KPI + Graphs
+      ["Abuse & Spam", "/admin/abuse"],
     ],
   },
+
   {
     title: "REVENUE MANAGEMENT",
     items: [
@@ -47,18 +45,7 @@ const MENU = [
       ["Payments", "/admin/payments"],
       ["Payouts", "/admin/payouts"],
       ["Revenue Analytics", "/admin/revenue"],
-      ["Commission Rules", "/admin/commission"],
-      ["Coupons", "/admin/coupons"],
-      ["Invoices", "/admin/invoices"],
-    ],
-  },
-  {
-    title: "FRANCHISE MANAGEMENT",
-    items: [
-      ["Global Franchise Overview", "/admin/franchise"],
-      ["Country Franchises", "/admin/franchise/country"],
-      ["State Franchises", "/admin/franchise/state"],
-      ["City Franchises", "/admin/franchise/city"],
+      ["Ads & Promotions", "/admin/ads"],
     ],
   },
   {
@@ -83,28 +70,25 @@ export default function AdminLayout({ children }) {
         <div className="admin-menu">
           {MENU.map((group, gi) => (
             <div key={gi} className="admin-group">
-              <div className="admin-group-title">
-                {group.title}
-              </div>
+              <div className="admin-group-title">{group.title}</div>
 
-              {group.items.map(([label, path], i) => (
-                <Link key={i} href={path}>
-                  <div
-                    className={
-                      router.pathname === path
-                        ? "admin-item active"
-                        : "admin-item"
-                    }
-                  >
-                    {label}
-                  </div>
-                </Link>
-              ))}
+              {group.items.map(([label, path], i) => {
+                const active =
+                  router.pathname === path ||
+                  router.asPath.startsWith(path);
+
+                return (
+                  <Link key={i} href={path}>
+                    <div className={`admin-item ${active ? "active" : ""}`}>
+                      {label}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           ))}
         </div>
 
-        {/* 🔒 LOGOUT */}
         <button
           className="admin-logout"
           onClick={() => signOut({ callbackUrl: "/" })}
@@ -115,20 +99,21 @@ export default function AdminLayout({ children }) {
 
       <main className="admin-main">{children}</main>
 
-      {/* ================= STYLES ================= */}
+      {/* ===== GLOBAL STYLES (UNCHANGED) ===== */}
       <style jsx global>{`
         .admin-root {
           display: flex;
-          height: 100vh;
+          min-height: 100vh;
+          background: #f1f5fb;
         }
 
         .admin-sidebar {
           width: 300px;
           background: linear-gradient(180deg, #0a1e3b, #0b254f);
           color: #ffffff;
-          overflow-y: auto;
           display: flex;
           flex-direction: column;
+          overflow-y: auto;
         }
 
         .admin-logo {
@@ -137,7 +122,7 @@ export default function AdminLayout({ children }) {
           font-weight: 900;
           text-align: center;
           letter-spacing: 1px;
-          background: rgba(255,255,255,0.08);
+          background: rgba(255, 255, 255, 0.08);
         }
 
         .admin-menu {
@@ -149,16 +134,15 @@ export default function AdminLayout({ children }) {
           margin-top: 18px;
         }
 
-        /* 🔵 READABLE HEADING */
         .admin-group-title {
-          margin: 14px 14px 8px;
+          margin: 12px 14px 6px;
           padding: 6px 10px;
           font-size: 12px;
           font-weight: 900;
           letter-spacing: 1px;
           text-transform: uppercase;
           color: #c7d2fe;
-          background: rgba(255,255,255,0.12);
+          background: rgba(255, 255, 255, 0.12);
           border-radius: 8px;
         }
 
@@ -170,21 +154,21 @@ export default function AdminLayout({ children }) {
           font-size: 14px;
           font-weight: 600;
           color: #e5e7eb;
-          transition: background 0.2s;
+          transition: all 0.2s ease;
         }
 
         .admin-item:hover {
-          background: rgba(255,255,255,0.12);
+          background: rgba(255, 255, 255, 0.15);
         }
 
         .admin-item.active {
-          background: linear-gradient(135deg,#2563eb,#1e40af);
-          font-weight: 800;
+          background: linear-gradient(135deg, #2563eb, #1e40af);
           color: #ffffff;
+          font-weight: 800;
         }
 
         .admin-logout {
-          margin: 12px;
+          margin: 14px;
           padding: 12px;
           border-radius: 12px;
           border: none;
@@ -201,7 +185,6 @@ export default function AdminLayout({ children }) {
         .admin-main {
           flex: 1;
           padding: 32px;
-          background: #f1f5fb;
           overflow-y: auto;
         }
       `}</style>

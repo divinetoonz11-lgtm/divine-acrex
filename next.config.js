@@ -1,3 +1,6 @@
+// 🔴 LOCAL ENV LOAD FIX (DO NOT COMMIT TO GIT)
+require("dotenv").config();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // ❌ Strict mode off — desktop dashboard loading loop fix

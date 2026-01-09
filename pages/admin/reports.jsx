@@ -1,37 +1,54 @@
-// pages/admin/reports.jsx
+import { useState } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 import AdminGuard from "../../components/AdminGuard";
 
 function AdminReports() {
-  const download = (type) => {
-    window.location.href = `/api/admin/reports?type=${type}`;
-  };
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+
+  function download(type) {
+    const qs = new URLSearchParams({ type, from, to }).toString();
+    window.location.href = `/api/admin/reports?${qs}`;
+  }
 
   return (
     <AdminLayout>
       <div style={{ maxWidth: 1200 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, marginBottom: 6 }}>
-          Reports & Exports
-        </h1>
-        <p style={{ color: "#64748b", marginBottom: 18 }}>
-          Download platform data in CSV format
+        <h1 style={h1}>Reports & Exports</h1>
+        <p style={sub}>
+          Download Users, Dealers, Properties and Enquiries data in CSV format
         </p>
 
-        <div style={box}>
-          <h3 style={{ marginBottom: 12 }}>Download CSV</h3>
+        {/* DATE FILTER */}
+        <div style={filterRow}>
+          <input
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+          <input
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
+        </div>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {/* REPORT BOX */}
+        <div style={box}>
+          <h3 style={{ marginBottom: 14 }}>Download CSV Reports</h3>
+
+          <div style={btnGrid}>
             <button style={btn} onClick={() => download("users")}>
-              Users
+              Users CSV
             </button>
             <button style={btn} onClick={() => download("dealers")}>
-              Dealers
+              Dealers CSV
             </button>
             <button style={btn} onClick={() => download("properties")}>
-              Properties
+              Properties CSV
             </button>
-            <button style={btn} onClick={() => download("payments")}>
-              Payments
+            <button style={btn} onClick={() => download("enquiries")}>
+              Enquiries CSV
             </button>
           </div>
         </div>
@@ -40,7 +57,7 @@ function AdminReports() {
   );
 }
 
-export default function ReportsWithGuard() {
+export default function Guarded() {
   return (
     <AdminGuard>
       <AdminReports />
@@ -48,11 +65,35 @@ export default function ReportsWithGuard() {
   );
 }
 
+/* ===== STYLES ===== */
+const h1 = {
+  fontSize: 28,
+  fontWeight: 900,
+  marginBottom: 6,
+};
+
+const sub = {
+  color: "#64748b",
+  marginBottom: 18,
+};
+
+const filterRow = {
+  display: "flex",
+  gap: 12,
+  marginBottom: 18,
+};
+
 const box = {
   background: "#fff",
-  padding: 18,
+  padding: 20,
   borderRadius: 16,
   boxShadow: "0 6px 20px rgba(15,23,42,.06)",
+};
+
+const btnGrid = {
+  display: "flex",
+  gap: 12,
+  flexWrap: "wrap",
 };
 
 const btn = {

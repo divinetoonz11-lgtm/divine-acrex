@@ -1,39 +1,91 @@
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
 import { PrismaClient } from "@prisma/client";
+
 const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
+  if (req.method !== "POST") {
+    return res.status(405).json({ ok: false, message: "Method not allowed" });
+  }
 
-  const { propertyId, userId } = req.body;
-  if (!propertyId || !userId) return res.status(400).end();
+  try {
+    /* ================= AUTH ================= */
+    const session = await getServerSession(req, res, authOptions);
+    if (!session?.user?.email) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
 
-  const listing = await prisma.listing.findFirst({
-    where: {
-      id: propertyId,
-      ownerId: userId,
-      ownerRole: "USER",
-      isDeleted: false,
-    },
-  });
+    const { propertyId } = req.body;
+    if (!propertyId) {
+      return res.status(400).json({ ok: false, message: "Property id missing" });
+    }
 
-  if (!listing) return res.status(404).json({ ok: false });
+    /* ================= FIND OWNER ================= */
+    const owner = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, role: true },
+    });
 
-  // 🔑 AUTO VERIFICATION RULE (Magicbricks-like)
-  const autoVerified =
-    listing.photosCount >= 3 && !!listing.videoUrl;
+    if (!owner) {
+      return res.status(403).json({ ok: false, message: "Invalid user" });
+    }
 
-  const updated = await prisma.listing.update({
-    where: { id: propertyId },
-    data: {
-      status: "LIVE",
-      verified: autoVerified,
-      verificationMode: autoVerified ? "AUTO" : "USER",
-    },
-  });
+    /* ================= FIND LISTING ================= */
+    const listing = await prisma.listing.findFirst({
+      where: {
+        id: propertyId,
+        ownerId: owner.id,
+        ownerRole: owner.role, // USER / DEALER
+        isDeleted: false,
+      },
+    });
 
-  res.json({
-    ok: true,
-    verified: updated.verified,
-    status: updated.status,
-  });
+    if (!listing) {
+      return res.status(404).json({
+        ok: false,
+        message: "Property not found or not allowed",
+      });
+    }
+
+    if (listing.status === "LIVE") {
+      return res.json({
+        ok: true,
+        status: "LIVE",
+        verified: listing.verified,
+        message: "Property already live",
+      });
+    }
+
+    /* ================= AUTO VERIFICATION LOGIC =================
+       Magicbricks style:
+       ✔ 3+ photos OR
+       ✔ 1 live video
+    ============================================================ */
+    const autoVerified =
+      Number(listing.photosCount || 0) >= 3 || !!listing.videoUrl;
+
+    const updated = await prisma.listing.update({
+      where: { id: propertyId },
+      data: {
+        status: "LIVE",
+        verified: autoVerified,
+        verificationMode: autoVerified ? "AUTO" : "MANUAL",
+        updatedAt: new Date(),
+      },
+    });
+
+    return res.json({
+      ok: true,
+      status: updated.status,
+      verified: updated.verified,
+      verificationMode: updated.verificationMode,
+    });
+  } catch (error) {
+    console.error("GO LIVE ERROR:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to go live",
+    });
+  }
 }

@@ -8,33 +8,12 @@ export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
 
   if (!session?.user?.email) {
-    return res.status(401).json({
-      ok: false,
-      message: "Unauthorized",
-    });
+    return res.status(401).json({ ok: false, message: "Unauthorized" });
   }
 
   const email = session.user.email;
-
   const client = await clientPromise;
   const db = client.db();
-
-  /* ================= DEALER CHECK (FINAL FIX) ================= */
-  const dealer = await db.collection("users").findOne({
-    email,
-    role: { $in: ["dealer", "DEALER"] }, // 🔥 CASE FIX
-    dealerApproved: true,
-    status: "active",
-  });
-
-  if (!dealer) {
-    // dealer hai hi nahi ya approve nahi
-    return res.json({
-      ok: true,
-      data: [],
-      totalPages: 1,
-    });
-  }
 
   /* ================= PAGINATION ================= */
   const page = Math.max(parseInt(req.query.page || "1", 10), 1);
@@ -42,26 +21,21 @@ export default async function handler(req, res) {
   const skip = (page - 1) * limit;
 
   /* ================= BASE FILTER =================
-     👉 Dealer ki sari properties dikhegi:
-     ✔ pending
-     ✔ approved
-     ✔ live
-     ✔ rejected
+     ✔ USER ki sab properties
+     ✔ Pending / Approved / Live
   =============================================== */
-  const baseFilter = {
+  const filter = {
     ownerEmail: email,
     isDeleted: { $ne: true },
   };
 
-  /* ================= GET → DEALER PROPERTIES ================= */
+  /* ================= GET → USER PROPERTIES ================= */
   if (req.method === "GET") {
-    const total = await db
-      .collection("properties")
-      .countDocuments(baseFilter);
+    const total = await db.collection("properties").countDocuments(filter);
 
     const rows = await db
       .collection("properties")
-      .find(baseFilter)
+      .find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -73,9 +47,9 @@ export default async function handler(req, res) {
         price: 1,
         photosCount: 1,
         videoName: 1,
-        status: 1,              // pending / approved
-        isLive: 1,              // true / false
-        verificationStatus: 1,  // VERIFIED_LIVE etc
+        status: 1,               // pending / approved
+        isLive: 1,
+        verificationStatus: 1,   // VERIFIED_LIVE
         createdAt: 1,
       })
       .toArray();
@@ -87,42 +61,25 @@ export default async function handler(req, res) {
     });
   }
 
-  /* ================= DELETE → DEALER PROPERTY ================= */
+  /* ================= DELETE → USER PROPERTY ================= */
   if (req.method === "DELETE") {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({
-        ok: false,
-        message: "Property id required",
-      });
+      return res.status(400).json({ ok: false, message: "Property id required" });
     }
 
     const result = await db.collection("properties").updateOne(
-      {
-        _id: new ObjectId(id),
-        ownerEmail: email,
-      },
-      {
-        $set: {
-          isDeleted: true,
-          updatedAt: new Date(),
-        },
-      }
+      { _id: new ObjectId(id), ownerEmail: email },
+      { $set: { isDeleted: true, updatedAt: new Date() } }
     );
 
     if (result.matchedCount === 0) {
-      return res.status(404).json({
-        ok: false,
-        message: "Property not found",
-      });
+      return res.status(404).json({ ok: false, message: "Property not found" });
     }
 
     return res.json({ ok: true });
   }
 
-  return res.status(405).json({
-    ok: false,
-    message: "Method not allowed",
-  });
+  return res.status(405).json({ ok: false });
 }

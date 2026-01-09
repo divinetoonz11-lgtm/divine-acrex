@@ -3,13 +3,30 @@ import React, { useEffect, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 
+/* ================= NAV ITEM ================= */
+const Nav = ({ active, onClick, children }) => (
+  <div
+    onClick={onClick}
+    style={{
+      padding: "12px 14px",
+      marginBottom: 6,
+      borderRadius: 10,
+      cursor: "pointer",
+      fontWeight: 700,
+      background: active ? "#ffffff" : "transparent",
+      color: active ? "#0a2a5e" : "#e5e7eb",
+    }}
+  >
+    {children}
+  </div>
+);
+
 function UserDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
   const [tab, setTab] = useState("overview");
   const [isMobile, setIsMobile] = useState(false);
-  const [mobileMenu, setMobileMenu] = useState(false);
 
   const [profile, setProfile] = useState({
     name: "",
@@ -19,11 +36,14 @@ function UserDashboard() {
 
   const [listings, setListings] = useState([]);
   const [saved, setSaved] = useState([]);
-  const [enquiries, setEnquiries] = useState([]);
   const [recent, setRecent] = useState([]);
+  const [enquiries, setEnquiries] = useState([]);
   const [referralCode, setReferralCode] = useState("");
 
-  const locked = !profile.profileCompleted;
+  /* ✅ 3-dot menu state */
+  const [openMenu, setOpenMenu] = useState(null);
+
+  const isDealer = session?.user?.role === "dealer";
 
   /* ===== MOBILE CHECK ===== */
   useEffect(() => {
@@ -47,22 +67,31 @@ function UserDashboard() {
       });
 
       const lr = await fetch("/api/user/listings");
-      setListings(lr.ok ? await lr.json() : []);
+      const lj = lr.ok ? await lr.json() : {};
+      setListings(Array.isArray(lj.data) ? lj.data : []);
 
       const sr = await fetch("/api/user/saved");
       setSaved(sr.ok ? await sr.json() : []);
 
+      const rr = await fetch("/api/user/recently-viewed");
+      setRecent(rr.ok ? await rr.json() : []);
+
       const er = await fetch("/api/user/enquiries");
       setEnquiries(er.ok ? await er.json() : []);
 
-      const rv = await fetch("/api/user/recently-viewed");
-      setRecent(rv.ok ? await rv.json() : []);
-
-      const rr = await fetch("/api/user/referral");
-      const rj = rr.ok ? await rr.json() : {};
+      const rc = await fetch("/api/user/referral");
+      const rj = rc.ok ? await rc.json() : {};
       setReferralCode(rj.referralCode || "");
     })();
   }, [status, session]);
+
+  /* ✅ PROPERTY IMAGE (Post Property wali photo) */
+  const getPropertyImage = (p) =>
+    p.images?.[0] ||
+    p.photos?.[0] ||
+    p.coverImage ||
+    p.image ||
+    "/no-property.jpg";
 
   /* ===== KPI ===== */
   const Kpi = ({ title, value, onClick }) => (
@@ -92,7 +121,7 @@ function UserDashboard() {
 
   return (
     <div style={wrap}>
-      {/* ===== DESKTOP SIDEBAR ===== */}
+      {/* ===== SIDEBAR ===== */}
       {!isMobile && (
         <aside style={sidebar}>
           <div style={{ textAlign: "center", marginBottom: 16 }}>
@@ -100,33 +129,13 @@ function UserDashboard() {
             <div style={{ fontSize: 12 }}>{profile.email}</div>
           </div>
 
-          <Nav active={tab === "overview"} onClick={() => setTab("overview")}>
-            Overview
-          </Nav>
-
-          <Nav onClick={() => window.open("/post-property", "_blank")}>
-            Free Listing (2 Left)
-          </Nav>
-
-          <Nav onClick={() => router.push("/user/enquiries")}>
-            My Enquiries
-          </Nav>
-
-          <Nav active={tab === "properties"} onClick={() => setTab("properties")}>
-            My Properties
-          </Nav>
-
-          <Nav active={tab === "saved"} onClick={() => setTab("saved")}>
-            Saved
-          </Nav>
-
-          <Nav active={tab === "recent"} onClick={() => setTab("recent")}>
-            Recently Viewed
-          </Nav>
-
-          <Nav active={tab === "profile"} onClick={() => setTab("profile")}>
-            Profile
-          </Nav>
+          <Nav active={tab === "overview"} onClick={() => setTab("overview")}>Overview</Nav>
+          <Nav onClick={() => window.open("/post-property", "_blank")}>Free Listing</Nav>
+          <Nav onClick={() => router.push("/user/enquiries")}>My Enquiries</Nav>
+          <Nav active={tab === "properties"} onClick={() => setTab("properties")}>My Properties</Nav>
+          <Nav active={tab === "saved"} onClick={() => setTab("saved")}>Saved</Nav>
+          <Nav active={tab === "recent"} onClick={() => setTab("recent")}>Recently Viewed</Nav>
+          <Nav active={tab === "profile"} onClick={() => setTab("profile")}>Profile</Nav>
 
           <button style={logout} onClick={() => signOut({ callbackUrl: "/" })}>
             Logout
@@ -136,11 +145,60 @@ function UserDashboard() {
 
       {/* ===== MAIN ===== */}
       <main style={main}>
-        {isMobile && (
-          <div style={mobileTop}>
-            <b>User Dashboard</b>
-            <button style={dotsBtn} onClick={() => setMobileMenu(true)}>
-              ☰
+        {/* ===== TOP BAR ===== */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>User Dashboard</h2>
+
+          {!isDealer && (
+            <button
+              onClick={() => router.push("/dealer/register")}
+              style={{
+                background: "#16a34a",
+                color: "#fff",
+                padding: "10px 20px",
+                borderRadius: 999,
+                border: "none",
+                fontWeight: 800,
+                cursor: "pointer",
+                boxShadow: "0 6px 14px rgba(22,163,74,0.35)",
+              }}
+            >
+              Become a Dealer
+            </button>
+          )}
+        </div>
+
+        {/* ===== DEALER INFO CARD ===== */}
+        {!isDealer && (
+          <div style={{
+            background: "linear-gradient(135deg,#16a34a,#22c55e)",
+            color: "#fff",
+            padding: 20,
+            borderRadius: 16,
+            marginBottom: 24,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <div>
+              <h3 style={{ margin: 0 }}>Become a Dealer & Grow Faster</h3>
+              <p style={{ margin: "6px 0 0", fontSize: 14 }}>
+                Unlimited listings • Real buyer leads • Area-wise exposure
+              </p>
+            </div>
+            <button
+              onClick={() => router.push("/dealer/register")}
+              style={{
+                background: "#fff",
+                color: "#166534",
+                padding: "10px 16px",
+                borderRadius: 999,
+                border: "none",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              Apply Now
             </button>
           </div>
         )}
@@ -151,10 +209,9 @@ function UserDashboard() {
             <div style={kpiGrid}>
               <Kpi title="My Properties" value={listings.length} onClick={() => setTab("properties")} />
               <Kpi title="Saved" value={saved.length} onClick={() => setTab("saved")} />
-              <Kpi title="Profile Status" value={profile.profileCompleted ? "Completed" : "Pending"} onClick={() => setTab("profile")} />
+              <Kpi title="My Enquiries" value={enquiries.length} />
               <Kpi title="Referral Code" value={referralCode || "—"} />
-              <Kpi title="My Enquiries" value={enquiries.length} onClick={() => router.push("/user/enquiries")} />
-              <Kpi title="Free Listings" value="2" onClick={() => window.open("/post-property", "_blank")} />
+              <Kpi title="Profile Status" value={profile.profileCompleted ? "Completed" : "Pending"} onClick={() => setTab("profile")} />
             </div>
 
             <div style={graphGrid}>
@@ -165,78 +222,117 @@ function UserDashboard() {
           </>
         )}
 
-        {/* ===== PROPERTIES (ONLY CHANGE HERE) ===== */}
+        {/* ===== MY PROPERTIES (PHOTO + 3 DOT WORKING) ===== */}
         {tab === "properties" && (
           <div style={box}>
             <h3>My Properties</h3>
 
             {listings.length === 0 ? (
-              <div>No properties yet</div>
+              <div style={{ color: "#6b7280" }}>No properties found</div>
             ) : (
-              listings.map((p, i) => (
+              listings.map((p) => (
                 <div
-                  key={i}
+                  key={p._id}
                   style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
                     padding: 12,
                     borderBottom: "1px solid #e5e7eb",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
                   }}
                 >
-                  <div>
-                    <b>{p.title || "Property"}</b>
-                    <VerifyBadge verified={p.verified === true} />
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>
-                      {p.verified ? "Live & Verified" : "Live (Verification Pending)"}
+                  {/* PHOTO */}
+                  <img
+                    src={getPropertyImage(p)}
+                    alt={p.title}
+                    style={{
+                      width: 90,
+                      height: 70,
+                      borderRadius: 10,
+                      objectFit: "cover",
+                    }}
+                  />
+
+                  {/* DETAILS (same text) */}
+                  <div style={{ flex: 1 }}>
+                    <b>{p.title}</b>
+
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        background:
+                          p.verificationStatus === "VERIFIED_LIVE"
+                            ? "#dcfce7"
+                            : "#fef3c7",
+                        color:
+                          p.verificationStatus === "VERIFIED_LIVE"
+                            ? "#166534"
+                            : "#92400e",
+                      }}
+                    >
+                      {p.verificationStatus === "VERIFIED_LIVE"
+                        ? "✔ Live Verified"
+                        : "⚠ Pending Approval"}
+                    </span>
+
+                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                      Status: <b>{p.status}</b>
                     </div>
                   </div>
 
-                  {!p.verified && (
+                  {/* 3 DOT MENU */}
+                  <div style={{ position: "relative" }}>
                     <button
-                      onClick={() => window.open("/post-property", "_blank")}
+                      onClick={() =>
+                        setOpenMenu(openMenu === p._id ? null : p._id)
+                      }
                       style={{
-                        padding: "6px 10px",
-                        background: "#f59e0b",
-                        color: "#fff",
+                        fontSize: 20,
+                        background: "none",
                         border: "none",
-                        borderRadius: 8,
-                        fontWeight: 700,
                         cursor: "pointer",
                       }}
                     >
-                      Verify Now
+                      ⋮
                     </button>
-                  )}
+
+                    {openMenu === p._id && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: 24,
+                          background: "#fff",
+                          borderRadius: 10,
+                          boxShadow: "0 10px 30px rgba(0,0,0,.15)",
+                          overflow: "hidden",
+                          zIndex: 10,
+                        }}
+                      >
+                        <div style={menuItem} onClick={() => router.push(`/post-property?id=${p._id}`)}>Edit</div>
+                        <div
+                          style={menuItem}
+                          onClick={() =>
+                            fetch(`/api/user/delete-property?id=${p._id}`, {
+                              method: "DELETE",
+                            })
+                          }
+                        >
+                          Delete
+                        </div>
+                        <div style={menuItem} onClick={() => router.push(`/verify-property?id=${p._id}`)}>
+                          Verify (Live Photo)
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             )}
-          </div>
-        )}
-
-        {tab === "saved" && (
-          <div style={box}>
-            <h3>Saved Properties</h3>
-            {saved.length === 0 ? <div>No saved properties</div> : saved.map((p, i) => <div key={i}>{p.title || "Property"}</div>)}
-          </div>
-        )}
-
-        {tab === "recent" && (
-          <div style={recentGrid}>
-            {recent.length === 0 ? (
-              <div>No recently viewed properties</div>
-            ) : (
-              recent.map((r, i) => <div key={i} style={recentCard}>{r.title || "Property"}</div>)
-            )}
-          </div>
-        )}
-
-        {tab === "profile" && (
-          <div style={box}>
-            <h3>Profile</h3>
-            <div>Name: {profile.name}</div>
-            <div>Email: {profile.email}</div>
-            <div>Status: {profile.profileCompleted ? "Completed" : "Pending"}</div>
           </div>
         )}
       </main>
@@ -244,28 +340,11 @@ function UserDashboard() {
   );
 }
 
-/* ===== VERIFIED BADGE (ONLY ADDITION) ===== */
-const VerifyBadge = ({ verified }) => (
-  <span
-    style={{
-      marginLeft: 8,
-      padding: "2px 8px",
-      borderRadius: 999,
-      fontSize: 11,
-      fontWeight: 800,
-      background: verified ? "#dcfce7" : "#fef3c7",
-      color: verified ? "#166534" : "#92400e",
-    }}
-  >
-    {verified ? "✔ Verified" : "⚠ Unverified"}
-  </span>
-);
-
-/* ===== STYLES (UNCHANGED) ===== */
+/* ===== STYLES ===== */
 const wrap = { display: "flex", minHeight: "100vh", background: "#f1f5fb" };
 const sidebar = { width: 260, background: "#0a2a5e", color: "#fff", padding: 16 };
 const main = { flex: 1, padding: 20 };
-const logout = { marginTop: 20, width: "100%", padding: "12px 0", background: "#ef4444", color: "#fff", border: "none", borderRadius: 12, fontWeight: 800, cursor: "pointer" };
+const logout = { marginTop: 20, width: "100%", padding: "12px 0", background: "#ef4444", color: "#fff", border: "none", borderRadius: 12, fontWeight: 800 };
 const kpiGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 14 };
 const kpi = { background: "#fff", padding: 16, borderRadius: 14, cursor: "pointer" };
 const graphGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginTop: 20 };
@@ -273,10 +352,7 @@ const graphCard = { background: "#fff", padding: 16, borderRadius: 14 };
 const barWrap = { display: "flex", gap: 14, alignItems: "flex-end", height: 140 };
 const barCol = { textAlign: "center" };
 const bar = { width: 16, background: "#2563eb", borderRadius: 6 };
-const mobileTop = { display: "flex", justifyContent: "space-between", marginBottom: 12 };
-const dotsBtn = { fontSize: 22, background: "none", border: "none" };
-const recentGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: 12 };
-const recentCard = { background: "#fff", padding: 12, borderRadius: 12 };
 const box = { background: "#fff", padding: 20, borderRadius: 14 };
+const menuItem = { padding: "10px 14px", cursor: "pointer", fontSize: 14 };
 
 export default dynamic(() => Promise.resolve(UserDashboard), { ssr: false });
