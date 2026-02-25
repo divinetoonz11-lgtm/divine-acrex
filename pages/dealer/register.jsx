@@ -34,6 +34,7 @@ export default function DealerRegister() {
     countryCode: "+91",
     mobile: "",
     company: "",
+    reraNumber: "",
     dealerType: "",
     referralCode: "",
     idProofType: "",
@@ -164,7 +165,7 @@ export default function DealerRegister() {
 
         <input name="mobile" placeholder="Mobile Number" required onChange={handleChange} style={input} />
         <input name="company" placeholder="Company / Firm Name" required onChange={handleChange} style={input} />
-
+        <input name="reraNumber" placeholder="RERA Registration Number" onChange={handleChange} style={input} />
         <select name="dealerType" required onChange={handleChange} style={input}>
           <option value="">Dealer Type</option>
           <option value="Individual">Individual</option>

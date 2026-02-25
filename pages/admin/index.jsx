@@ -1,4 +1,3 @@
-// pages/admin/index.jsx
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
@@ -8,28 +7,15 @@ export default function AdminIndex() {
   const { status, data: session } = useSession();
 
   useEffect(() => {
-    // ⏳ Session load hone do
     if (status === "loading") return;
 
-    // 🔒 Session hi nahi → login
-    if (!session) {
-      router.replace("/login");
+    if (!session || session.user?.role !== "admin") {
+      router.replace("/admin_login");
       return;
     }
 
-    // 🔐 Role check (admin hi allowed)
-    if (session.user?.role !== "admin") {
-      router.replace("/login");
-      return;
-    }
-
-    // ✅ Sab sahi → admin overview
-    router.replace("/admin/overview");
+    router.replace("/admin/overview"); // ✅ single source of truth
   }, [status, session, router]);
 
-  return (
-    <div style={{ padding: 40, textAlign: "center" }}>
-      Loading admin dashboard…
-    </div>
-  );
+  return <div style={{ padding: 40 }}>Loading admin…</div>;
 }

@@ -1,68 +1,107 @@
 // pages/api/dealer/subscription.js
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
+import dbConnect from "../../../utils/dbConnect";
+import User from "../../../models/User";
 
 /*
-STEP 1 – FINAL
-✔ One-time subscribe
-✔ Redirect flag
-✔ Welcome flag
-✔ No auto-repeat
+SUBSCRIPTION API – FINAL (REAL DB)
+✔ FREE plan = 10 listings / 3 months
+✔ 11th listing se payment required
+✔ One-time FREE only
+✔ MongoDB based
 */
 
-let memorySubscription = {
-  plan: null,              // FREE | STARTER | PRO | ELITE
-  status: "NO_PLAN",       // NO_PLAN | PENDING | ACTIVE
-  expiresAt: null,
-};
+export default async function handler(req, res) {
+  try {
+    const session = await getServerSession(req, res, authOptions);
+    if (!session?.user?.email) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
 
-export default function handler(req, res) {
-  // ================= GET =================
-  if (req.method === "GET") {
-    return res.status(200).json({
-      ok: true,
-      subscription: memorySubscription,
-    });
-  }
+    await dbConnect();
 
-  // ================= POST =================
-  if (req.method === "POST") {
-    const { plan } = req.body || {};
+    const dealer = await User.findOne({ email: session.user.email });
+    if (!dealer) {
+      return res.status(404).json({ ok: false, message: "Dealer not found" });
+    }
 
-    if (!plan) {
-      return res.status(400).json({
-        ok: false,
-        message: "Plan missing",
+    /* ================= GET ================= */
+    if (req.method === "GET") {
+      return res.json({
+        ok: true,
+        subscription: dealer.subscription || {
+          plan: "NONE",
+          status: "NO_PLAN",
+        },
       });
     }
 
-    // ❗ Already subscribed → block repeat
-    if (memorySubscription.status !== "NO_PLAN") {
-      return res.status(200).json({
+    /* ================= POST ================= */
+    if (req.method === "POST") {
+      const { plan } = req.body;
+
+      if (!plan) {
+        return res.status(400).json({ ok: false, message: "Plan missing" });
+      }
+
+      // ❌ FREE already used
+      if (
+        plan === "FREE" &&
+        dealer.subscription?.plan === "FREE"
+      ) {
+        return res.json({
+          ok: false,
+          message: "Free plan already used",
+        });
+      }
+
+      const now = new Date();
+
+      // ✅ FREE PLAN
+      if (plan === "FREE") {
+        dealer.subscription = {
+          plan: "FREE",
+          status: "ACTIVE",
+          listingLimit: 10,
+          usedListings: dealer.usedListings || 0,
+          startedAt: now,
+          expiresAt: new Date(
+            now.getTime() + 90 * 24 * 60 * 60 * 1000 // 3 months
+          ),
+        };
+
+        await dealer.save();
+
+        return res.json({
+          ok: true,
+          message: "Free plan activated (10 listings / 3 months)",
+          redirect: "/dealer/dashboard",
+        });
+      }
+
+      // ✅ PAID PLANS (starter / pro / elite)
+      dealer.subscription = {
+        plan,
+        status: "ACTIVE",
+        listingLimit: plan === "STARTER" ? 50 : plan === "PRO" ? 300 : Infinity,
+        usedListings: dealer.usedListings || 0,
+        startedAt: now,
+        expiresAt: null, // payment based expiry handled later
+      };
+
+      await dealer.save();
+
+      return res.json({
         ok: true,
-        message: "Already subscribed",
+        message: "Subscription activated",
         redirect: "/dealer/dashboard",
       });
     }
 
-    // ✅ First-time subscribe
-    memorySubscription = {
-      plan,
-      status: "PENDING",
-      expiresAt: plan === "FREE"
-        ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // 3 months
-        : null,
-    };
-
-    return res.status(200).json({
-      ok: true,
-      message: "Subscription received",
-      redirect: "/dealer/dashboard",
-      welcome: true,
-    });
+    return res.status(405).json({ ok: false, message: "Method not allowed" });
+  } catch (err) {
+    console.error("Subscription API error:", err);
+    return res.status(500).json({ ok: false });
   }
-
-  // ================= OTHER =================
-  return res.status(405).json({
-    ok: false,
-    message: "Method not allowed",
-  });
 }

@@ -10,6 +10,9 @@ const ADMIN_EMAILS = [
   "divinetoonz11@gmail.com",
 ].map(e => e.toLowerCase());
 
+/* ======================================================
+   🔐 AUTH OPTIONS
+====================================================== */
 export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 
@@ -26,56 +29,54 @@ export const authOptions = {
 
   callbacks: {
     /* =========================
-       JWT CALLBACK (SOURCE OF TRUTH)
+       🔑 JWT CALLBACK
+       (LOGIN TIME ONLY)
     ========================= */
     async jwt({ token, user }) {
-      // first hit (login)
-      if (user?.email) {
-        const email = user.email.toLowerCase();
+      // ✅ normal page refresh / logout time
+      if (!user?.email) return token;
 
-        const client = await clientPromise;
-        const db = client.db();
-        const users = db.collection("users");
+      const email = user.email.toLowerCase();
+      const name = user.name || "";
 
-        // 🔒 ADMIN HARD LOCK
-        if (ADMIN_EMAILS.includes(email)) {
-          token.email = email;
-          token.role = "admin";
-          token.name = user.name || "";
-          return token;
-        }
+      const client = await clientPromise;
+      const db = client.db();
+      const users = db.collection("users");
 
-        const dbUser = await users.findOne({ email });
-
-        // 🆕 FIRST LOGIN → CREATE USER (SAFE DEFAULT)
-        if (!dbUser) {
-          await users.insertOne({
-            name: user.name || "",
-            email,
-            mobile: "",
-            role: "user",        // 🔹 default
-            kycStatus: "pending",
-            createdAt: new Date(),
-          });
-
-          token.email = email;
-          token.role = "user";
-          token.name = user.name || "";
-          return token;
-        }
-
-        // 🔁 EXISTING USER (USER / DEALER / SUB-ADMIN)
+      // 🔒 ADMIN HARD LOCK
+      if (ADMIN_EMAILS.includes(email)) {
         token.email = email;
-        token.role = dbUser.role || "user";
-        token.name = dbUser.name || user.name || "";
+        token.role = "admin";
+        token.name = name;
         return token;
       }
 
+      const dbUser = await users.findOne({ email });
+
+      // 🆕 FIRST LOGIN → CREATE USER
+      if (!dbUser) {
+        await users.insertOne({
+          name,
+          email,
+          role: "user",
+          createdAt: new Date(),
+        });
+
+        token.email = email;
+        token.role = "user";
+        token.name = name;
+        return token;
+      }
+
+      // 🔁 EXISTING USER / DEALER
+      token.email = email;
+      token.role = dbUser.role || "user";
+      token.name = dbUser.name || name;
       return token;
     },
 
     /* =========================
-       SESSION CALLBACK
+       🧾 SESSION CALLBACK
     ========================= */
     async session({ session, token }) {
       session.user = {
@@ -85,7 +86,22 @@ export const authOptions = {
       };
       return session;
     },
+
+    /* =========================
+       🔁 REDIRECT CALLBACK
+       ⚠️ LOGIN ONLY
+       ❌ LOGOUT SE KOI MATLAB NAHI
+    ========================= */
+    async redirect({ baseUrl, url }) {
+      // ✅ logout ke baad signOut callbackUrl use hota hai
+      // ✅ login ke baad sab users auth/redirect par jayenge
+      if (url.startsWith(baseUrl)) return url;
+      return baseUrl + "/auth/redirect";
+    },
   },
 };
 
+/* ======================================================
+   🔥 DEFAULT EXPORT
+====================================================== */
 export default NextAuth(authOptions);

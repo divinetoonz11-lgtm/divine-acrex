@@ -2,36 +2,146 @@ import mongoose from "mongoose";
 
 const PropertySchema = new mongoose.Schema(
   {
-    // Owner: user or dealer
-    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-
+    /* ================= BASIC ================= */
     title: { type: String, required: true },
-    description: { type: String, default: "" },
+    description: String,
 
-    // Locations
-    city: { type: String, required: true },
-    location: { type: String, default: "" },
+    category: {
+      type: String,
+      enum: ["residential", "commercial", "hotel"],
+    },
 
-    // Prices
-    price: { type: Number, required: true },
-    priceType: { type: String, default: "sell" }, // sell | rent
+    propertyType: String,
+    listingFor: {
+      type: String,
+      enum: ["sell", "rent", "lease"],
+    },
 
-    // Property details
-    bhk: { type: Number, default: 2 },
-    area: { type: Number, default: 900 }, // sqft
+    /* ================= PRICE ================= */
+    price: Number,
+    priceType: String,
 
-    // Images
-    images: [{ type: String }],
+    /* ================= DETAILS ================= */
+    bhk: String,
+    area: Number,
+    floor: String,
+    vastu: String,
+    furnishing: String,
 
-    // Status (admin controls)
-    active: { type: Boolean, default: true },   // admin ON/OFF property
-    approved: { type: Boolean, default: false }, // admin approval system
+    /* ================= LOCATION ================= */
+    state: String,
+    city: String,
+    locality: String,
+    society: String,
 
-    // Dealer extra info
-    furnished: { type: String, default: "unfurnished" },
-    parking: { type: Boolean, default: false },
+    /* ================= MEDIA ================= */
+
+    // Existing images (safe)
+    images: {
+      type: [String],
+      default: [],
+    },
+
+    // NEW proper videos array (IMPORTANT FIX)
+    videos: {
+      type: [String],
+      default: [],
+    },
+
+    // Temporary backward compatibility (safe)
+    videoName: {
+      type: String,
+      default: null,
+    },
+
+    photosCount: {
+      type: Number,
+      default: 0,
+    },
+
+    /* ================= CONTACT ================= */
+    mobile: String,
+    ownerEmail: String,
+    ownerName: String,
+    dealerEmail: String,
+    dealerName: String,
+
+    /* ================= STATUS SYSTEM ================= */
+    status: {
+      type: String,
+      enum: ["pending", "live", "blocked", "sold", "rented"],
+      default: "pending",
+    },
+
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+
+    approvedBy: String,
+    approvedAt: Date,
+    blockedReason: String,
+
+    /* ================= SYSTEM FLAGS ================= */
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    availability: {
+      type: Boolean,
+      default: true,
+    },
+
+    views: {
+      type: Number,
+      default: 0,
+    },
+
+    enquiries: {
+      type: Number,
+      default: 0,
+    },
+
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
+
+    /* ================= COMMERCIAL EXTRA ================= */
+    commercial: {
+      builtUp: String,
+      carpet: String,
+      frontage: String,
+      floorLevel: String,
+      parkingCapacity: String,
+    },
+
+    /* ================= HOTEL EXTRA ================= */
+    hotel: {
+      hotelType: String,
+      rooms: String,
+      starMin: String,
+      starMax: String,
+      banquet: Boolean,
+      lawn: Boolean,
+      peopleCapacity: String,
+      restaurant: Boolean,
+      bar: Boolean,
+      swimmingPool: Boolean,
+    },
+
+    /* ================= AUDIT ================= */
+    updatedByAdmin: Boolean,
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 export default mongoose.models.Property ||

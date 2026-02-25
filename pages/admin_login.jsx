@@ -2,7 +2,7 @@ import { signIn, getSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
-/* 🔒 PERMANENT ADMIN EMAIL LIST (baad me panel se manage hoga) */
+/* 🔒 PERMANENT ADMIN EMAIL LIST */
 const ADMIN_EMAILS = [
   "inder.ambalika@gmail.com",
   "divinetoonz11@gmail.com",
@@ -16,7 +16,7 @@ export default function AdminLogin() {
     (async () => {
       const session = await getSession();
 
-      // ✅ Already logged-in admin → dashboard
+      // ✅ Already logged-in admin → ADMIN DASHBOARD
       if (
         session?.user?.email &&
         ADMIN_EMAILS.includes(session.user.email) &&
@@ -34,7 +34,7 @@ export default function AdminLogin() {
 
   const loginWithGoogle = async () => {
     await signIn("google", {
-      callbackUrl: "/auth/redirect",
+      callbackUrl: "/admin/dashboard", // ✅ FINAL & CORRECT
       prompt: "select_account",
     });
   };

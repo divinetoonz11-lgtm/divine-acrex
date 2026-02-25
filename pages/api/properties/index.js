@@ -1,105 +1,239 @@
 import clientPromise from "../../../lib/mongodb";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import { ObjectId } from "mongodb";
 
-/*
-FINAL RULE APPLIED:
-- POST  → create property
-- GET   → list LIVE properties
-- Role property me store nahi
-- Listing filter = status === "live" only
-*/
+/* ================== 413 FIX ================== */
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "25mb",
+    },
+  },
+};
+/* ============================================= */
 
 export default async function handler(req, res) {
-  const client = await clientPromise;
-  const db = client.db();
+  try {
+    const client = await clientPromise;
+    const db = client.db("divineacres");
+    const col = db.collection("properties");
 
-  /* ================= GET : PUBLIC LISTING ================= */
-  if (req.method === "GET") {
-    try {
-      const items = await db
-        .collection("properties")
+    /* =====================================================
+       PUBLIC LISTING (NO LOGIN REQUIRED)
+    ===================================================== */
+    if (req.method === "GET" && req.query.role === "PUBLIC") {
+      const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit || "10", 10), 1),
+        50
+      );
+
+      const skip = (page - 1) * limit;
+
+      const filter = {
+        isDeleted: { $ne: true },
+        status: { $in: ["live", "LIVE", "Live"] },
+      };
+
+      const [rows, total] = await Promise.all([
+        col
+          .find(filter)
+          .sort({ createdAt: -1, _id: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        col.countDocuments(filter),
+      ]);
+
+      return res.status(200).json({
+        ok: true,
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        data: rows,
+      });
+    }
+
+    /* =====================================================
+       AUTH REQUIRED
+    ===================================================== */
+    const session = await getServerSession(req, res, authOptions);
+
+    if (!session?.user?.email) {
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
+    }
+
+    const userEmail = session.user.email;
+    const role = session.user.role;
+
+    /* ================= GET USER PROPERTIES ================= */
+    if (req.method === "GET") {
+      const rows = await col
         .find({
-          status: "live",
+          $or: [{ ownerEmail: userEmail }, { dealerEmail: userEmail }],
           isDeleted: { $ne: true },
         })
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1, _id: -1 })
         .toArray();
 
-      return res.json({ ok: true, data: items });
-    } catch (e) {
-      console.error("PROPERTY LIST ERROR:", e);
-      return res.status(500).json({ ok: false });
+      return res.json({ ok: true, data: rows });
     }
-  }
 
-  /* ================= POST : CREATE PROPERTY ================= */
-  if (req.method === "POST") {
-    try {
-      const session = await getServerSession(req, res, authOptions);
-      if (!session || !session.user || !session.user.email) {
-        return res.status(401).json({ ok: false, message: "Unauthorized" });
-      }
+    /* ================= CREATE PROPERTY ================= */
+    if (req.method === "POST") {
+      const userDoc = await db
+        .collection("users")
+        .findOne({ email: userEmail });
 
-      const b = req.body || {};
-      if (!b.title || !b.category || !b.city || !b.price) {
-        return res.status(400).json({ ok: false, message: "Missing fields" });
-      }
+      const {
+        title,
+        listingFor,
+        category,
+        propertyType,
+        furnishing,
+        price,
+        bhk,
+        area,
+        state,
+        city,
+        locality,
+        society,
+        floor,
+        vastu,
+        description,
+        mobile,
+        amenities,
+        commercial,
+        hotel,
+        photos,     // old support
+        images,     // new support
+        videos,     // new support
+      } = req.body;
 
-      // 🔒 ROLE ONLY FROM USERS DB
-      const role = (session.user.role || "").toLowerCase();
-      const isDealer = role === "dealer";
+      const finalImages = Array.isArray(images)
+        ? images
+        : Array.isArray(photos)
+        ? photos
+        : [];
 
-      const property = {
-        title: b.title,
-        category: b.category,
-        propertyType: b.propertyType || "",
-        furnishing: b.furnishing || "",
-        listingFor: b.listingFor || "",
+      const finalVideos = Array.isArray(videos) ? videos : [];
 
-        price: Number(b.price),
-        area: Number(b.area || 0),
-        bhk: b.bhk || "",
+      const newProperty = {
+        title: title || "",
 
-        state: b.state || "",
-        city: b.city,
-        locality: b.locality || "",
-        society: b.society || "",
+        postedBy: role === "dealer" ? "Dealer" : "Owner",
 
-        floor: b.floor || "",
-        vastu: b.vastu || "",
-        description: b.description || "",
-        amenities: Array.isArray(b.amenities) ? b.amenities : [],
+        listingFor,
+        category,
+        propertyType,
+        furnishing,
 
-        photosCount: Number(b.photosCount || 0),
-        videoName: b.videoName || null,
+        price: Number(price) || 0,
+        bhk: bhk || "",
+        area: Number(area) || 0,
 
-        // 🔑 SINGLE SOURCE
-        ownerEmail: isDealer ? null : session.user.email,
-        ownerName: isDealer ? null : session.user.name || "",
+        state,
+        city,
+        locality,
+        society,
+        floor,
+        vastu,
+        description,
+        mobile,
 
-        dealerEmail: isDealer ? session.user.email : null,
-        dealerName: isDealer ? session.user.name || "" : null,
+        amenities: Array.isArray(amenities) ? amenities : [],
+        commercial: commercial || null,
+        hotel: hotel || null,
 
-        // 🔑 ADMIN FLOW
+        // ✅ FIXED MEDIA SYSTEM
+        images: finalImages,
+        videos: finalVideos,
+        photosCount: finalImages.length,
+
         status: "pending",
+        availability: true,
         isDeleted: false,
+
+        ownerEmail: role === "user" ? userEmail : null,
+        dealerEmail: role === "dealer" ? userEmail : null,
+
+        ownerName: role === "user" ? userDoc?.name || null : null,
+        dealerName: role === "dealer" ? userDoc?.name || null : null,
+        companyName: role === "dealer" ? userDoc?.company || null : null,
 
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
-      const result = await db.collection("properties").insertOne(property);
+      await col.insertOne(newProperty);
 
       return res.status(200).json({
         ok: true,
-        id: result.insertedId,
+        message: "Property created successfully",
       });
-    } catch (err) {
-      console.error("PROPERTY SAVE ERROR:", err);
-      return res.status(500).json({ ok: false });
     }
-  }
 
-  return res.status(405).json({ ok: false });
+    /* ================= SOFT DELETE ================= */
+    if (req.method === "DELETE") {
+      const { propertyId } = req.body;
+
+      if (!propertyId || !ObjectId.isValid(propertyId)) {
+        return res.status(400).json({ ok: false });
+      }
+
+      await col.updateOne(
+        {
+          _id: new ObjectId(propertyId),
+          $or: [{ ownerEmail: userEmail }, { dealerEmail: userEmail }],
+        },
+        {
+          $set: {
+            isDeleted: true,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      return res.json({ ok: true });
+    }
+
+    /* ================= SOLD / RENTED ================= */
+    if (req.method === "PATCH") {
+      const { propertyId, status } = req.body;
+
+      if (!["sold", "rented"].includes(status)) {
+        return res.status(400).json({ ok: false });
+      }
+
+      await col.updateOne(
+        {
+          _id: new ObjectId(propertyId),
+          $or: [{ ownerEmail: userEmail }, { dealerEmail: userEmail }],
+        },
+        {
+          $set: {
+            status,
+            availability: false,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      return res.json({ ok: true });
+    }
+
+    return res.status(405).json({
+      ok: false,
+      message: "Method not allowed",
+    });
+
+  } catch (err) {
+    console.error("PROPERTIES API ERROR:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Server error",
+    });
+  }
 }

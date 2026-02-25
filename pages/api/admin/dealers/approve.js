@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    /* 🔐 ADMIN CHECK */
+    /* ================= ADMIN AUTH ================= */
     const session = await getServerSession(req, res, authOptions);
     if (!session || session.user?.role !== "admin") {
       return res.status(401).json({ ok: false, message: "Unauthorized" });
@@ -27,16 +27,13 @@ export default async function handler(req, res) {
 
     const dealerRequests = db.collection("dealer_requests");
     const users = db.collection("users");
+    const dealerProfiles = db.collection("dealer_profiles");
+    const properties = db.collection("properties");
 
-    /* ✅ FIX: ObjectId conversion */
     const _id = new ObjectId(requestId);
 
-    /* 📥 FETCH REQUEST */
-    const reqDoc = await dealerRequests.findOne({
-      _id,
-      status: "pending",
-    });
-
+    /* ================= FETCH REQUEST ================= */
+    const reqDoc = await dealerRequests.findOne({ _id, status: "pending" });
     if (!reqDoc) {
       return res.status(404).json({
         ok: false,
@@ -44,13 +41,12 @@ export default async function handler(req, res) {
       });
     }
 
-    /* 🔑 TOKEN */
+    /* ================= TOKEN ================= */
     const rawToken = crypto.randomBytes(32).toString("hex");
     const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-
     const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    /* ✅ UPDATE REQUEST */
+    /* ================= APPROVE REQUEST ================= */
     await dealerRequests.updateOne(
       { _id },
       {
@@ -62,23 +58,72 @@ export default async function handler(req, res) {
       }
     );
 
-    /* 👤 CREATE / UPDATE USER */
+    /* ================= USER UPSERT ================= */
+    const existingUser = await users.findOne({ email: reqDoc.email });
+
+    const userUpdate = {
+      email: reqDoc.email,
+      role: "dealer",
+      dealerApproved: true,
+      dealerProfileCompleted: true,
+      updatedAt: new Date(),
+    };
+
+    if (reqDoc.name && !existingUser?.name) userUpdate.name = reqDoc.name;
+    if (reqDoc.mobile && !existingUser?.mobile) userUpdate.mobile = reqDoc.mobile;
+    if (reqDoc.companyName && !existingUser?.companyName)
+      userUpdate.companyName = reqDoc.companyName;
+
+    if (!existingUser?.image && reqDoc.image) {
+      userUpdate.image = reqDoc.image;
+    }
+
+    if (!existingUser?.passwordSet) {
+      userUpdate.passwordSet = false;
+      userUpdate.setupToken = tokenHash;
+      userUpdate.setupTokenExpires = tokenExpiry;
+    }
+
     await users.updateOne(
+      { email: reqDoc.email },
+      { $set: userUpdate, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true }
+    );
+
+    /* ================= 🔒 DEALER PROFILE AUTO-CREATE & LOCK ================= */
+    await dealerProfiles.updateOne(
       { email: reqDoc.email },
       {
         $set: {
-          name: reqDoc.name,
+          name: reqDoc.name || "",
           email: reqDoc.email,
-          role: "dealer",
-          passwordSet: false,
-          setupToken: tokenHash,
-          setupTokenExpires: tokenExpiry,
+          mobile: reqDoc.mobile || "",
+          businessName: reqDoc.companyName || "",
+          address: reqDoc.address || "",
+          pan: reqDoc.pan || "",
+          gst: reqDoc.gst || "",
+          profileCompleted: true,
+          profileLocked: true, // 🔒 HARD LOCK
+          approvedAt: new Date(),
+          updatedAt: new Date(),
         },
+        $setOnInsert: { createdAt: new Date() },
       },
       { upsert: true }
     );
 
-    /* 📧 EMAIL */
+    /* ================= PROPERTY SYNC ================= */
+    await properties.updateMany(
+      { dealerRequestId: _id },
+      {
+        $set: {
+          dealerEmail: reqDoc.email,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    /* ================= EMAIL ================= */
     const setupUrl = `${process.env.NEXTAUTH_URL}/set-username-password?token=${rawToken}`;
 
     await sendMail({
@@ -87,14 +132,15 @@ export default async function handler(req, res) {
       html: `
         <h2>Congratulations 🎉</h2>
         <p>Your Dealer account has been approved.</p>
+        <p>Click below to set your username & password:</p>
         <a href="${setupUrl}">Set Username & Password</a>
-        <p>Link valid for 24 hours</p>
+        <p>This link is valid for 24 hours.</p>
       `,
     });
 
     return res.json({
       ok: true,
-      message: "Dealer approved & setup email sent",
+      message: "Dealer approved & profile locked successfully",
     });
   } catch (err) {
     console.error("APPROVE DEALER ERROR:", err);

@@ -58,3 +58,4 @@ _BACKUP_BEFORE_LOGIN_FIX/
 *.old
 *.chatbackup.js
 *.role-backup.jsx
+.vercel

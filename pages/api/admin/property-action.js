@@ -8,6 +8,7 @@ export default async function handler(req, res) {
 
   try {
     const { id, action } = req.body;
+
     if (!id || !action) {
       return res.status(400).json({ ok: false, message: "Missing data" });
     }
@@ -17,15 +18,27 @@ export default async function handler(req, res) {
 
     let update = {};
 
-    // 🔒 FINAL RULE: ADMIN ACTIONS (SINGLE SOURCE)
+    /* ================= ADMIN FINAL ACTION RULES ================= */
+
     if (action === "approve") {
-      update = { status: "live" };
+      update = {
+        status: "live",          // admin panel status
+        isApproved: true,        // 🔥 frontend listing condition
+        approvedAt: new Date(),
+      };
     }
     else if (action === "block") {
-      update = { status: "blocked" };
+      update = {
+        status: "blocked",
+        isApproved: false,
+      };
     }
     else if (action === "spam") {
-      update = { spam: true };
+      update = {
+        spam: true,
+        status: "blocked",
+        isApproved: false,
+      };
     }
     else {
       return res.status(400).json({ ok: false, message: "Invalid action" });
@@ -37,8 +50,9 @@ export default async function handler(req, res) {
     );
 
     return res.json({ ok: true });
-  } catch (e) {
-    console.error("ADMIN PROPERTY ACTION ERROR:", e);
+
+  } catch (err) {
+    console.error("ADMIN PROPERTY ACTION ERROR:", err);
     return res.status(500).json({ ok: false });
   }
 }

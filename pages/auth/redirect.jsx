@@ -1,31 +1,34 @@
 import { getServerSession } from "next-auth/next";
 
-/**
- * NOTE:
- * - authOptions ko top-level par import NAHI kiya gaya
- * - Build time par MongoDB access avoid karne ke liye
- * - authOptions ko runtime par dynamically import kiya gaya hai
- */
-
-export async function getServerSideProps({ req, res }) {
-  // 🔑 authOptions ko runtime par load karo
+export async function getServerSideProps({ req, res, query }) {
   const { authOptions } = await import("../api/auth/[...nextauth]");
-
   const session = await getServerSession(req, res, authOptions);
 
-  // ❌ Login nahi hai
+  /* ❌ NOT LOGGED IN → LOGIN ONLY (HOME NEVER) */
   if (!session) {
     return {
       redirect: {
-        destination: "/",
+        destination: "/login",
         permanent: false,
       },
     };
   }
 
-  const role = session.user?.role;
+  /* ⏳ FIRST GOOGLE HIT (ROLE NOT YET IN TOKEN)
+     → SAME PAGE ONCE, THEN JWT FILLS ROLE */
+  if (!session.user?.role) {
+    return {
+      redirect: {
+        destination: "/auth/redirect",
+        permanent: false,
+      },
+    };
+  }
 
-  // 🔐 ADMIN
+  const role = session.user.role;
+  const intent = query.as; // dealer intent from login
+
+  /* 🔐 ADMIN */
   if (role === "admin") {
     return {
       redirect: {
@@ -35,8 +38,8 @@ export async function getServerSideProps({ req, res }) {
     };
   }
 
-  // 🧑‍💼 DEALER
-  if (role === "dealer") {
+  /* 🧑‍💼 DEALER (approved OR intent) */
+  if (role === "dealer" || intent === "dealer") {
     return {
       redirect: {
         destination: "/dealer/dashboard",
@@ -45,7 +48,7 @@ export async function getServerSideProps({ req, res }) {
     };
   }
 
-  // 👤 USER (default)
+  /* 👤 USER (DEFAULT) */
   return {
     redirect: {
       destination: "/user/dashboard",
@@ -54,7 +57,7 @@ export async function getServerSideProps({ req, res }) {
   };
 }
 
-// 👇 Ye page kabhi UI render nahi karta
+/* UI NEVER RENDERS */
 export default function Redirect() {
   return null;
 }

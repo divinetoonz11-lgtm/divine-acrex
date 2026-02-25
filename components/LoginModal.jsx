@@ -50,7 +50,7 @@ export default function LoginModal({ open, onClose }) {
     return true;
   };
 
-  /* ================= GOOGLE LOGIN ================= */
+  /* ================= GOOGLE LOGIN (FINAL FIX) ================= */
   const googleLogin = async () => {
     if (!verifyCaptcha()) return;
     if (!agree) return alert("Please accept Terms & Conditions");
@@ -60,7 +60,10 @@ export default function LoginModal({ open, onClose }) {
     }
 
     await signIn("google", {
-      callbackUrl: "/auth/redirect",
+      callbackUrl:
+        role === "dealer"
+          ? "/dealer/dashboard"
+          : "/user/dashboard",
     });
   };
 
@@ -77,7 +80,11 @@ export default function LoginModal({ open, onClose }) {
     });
 
     if (!res?.ok) return alert("Invalid login");
-    window.location.href = "/auth/redirect";
+
+    window.location.href =
+      role === "dealer"
+        ? "/dealer/dashboard"
+        : "/user/dashboard";
   };
 
   return (
@@ -89,10 +96,24 @@ export default function LoginModal({ open, onClose }) {
         {step === "role" && (
           <>
             <h2 style={title}>Select Account Type</h2>
-            <button style={roleBtn} onClick={() => { setRole("user"); setStep("login"); generateCaptcha(); }}>
+            <button
+              style={roleBtn}
+              onClick={() => {
+                setRole("user");
+                setStep("login");
+                generateCaptcha();
+              }}
+            >
               Login as User
             </button>
-            <button style={roleBtnAlt} onClick={() => { setRole("dealer"); setStep("login"); generateCaptcha(); }}>
+            <button
+              style={roleBtnAlt}
+              onClick={() => {
+                setRole("dealer");
+                setStep("login");
+                generateCaptcha();
+              }}
+            >
               Login as Dealer
             </button>
           </>
@@ -101,7 +122,9 @@ export default function LoginModal({ open, onClose }) {
         {/* ===== LOGIN ===== */}
         {step === "login" && (
           <>
-            <h2 style={title}>{role === "dealer" ? "Dealer Login" : "User Login"}</h2>
+            <h2 style={title}>
+              {role === "dealer" ? "Dealer Login" : "User Login"}
+            </h2>
 
             <button style={googleBtn} onClick={googleLogin}>
               Continue with Google
@@ -128,7 +151,6 @@ export default function LoginModal({ open, onClose }) {
               Login with Password
             </button>
 
-            {/* FORGOT PASSWORD */}
             <div style={forgotBox}>
               <a href="/forgot-password" style={forgotLink}>
                 Forgot Password?
@@ -142,12 +164,13 @@ export default function LoginModal({ open, onClose }) {
               style={input}
             />
 
-            {/* CAPTCHA */}
             <div style={captchaBox}>
               <span>{num1} + {num2} =</span>
               <input
                 value={captcha}
-                onChange={(e) => setCaptcha(e.target.value.replace(/[^0-9]/g, ""))}
+                onChange={(e) =>
+                  setCaptcha(e.target.value.replace(/[^0-9]/g, ""))
+                }
                 placeholder="Answer"
                 style={captchaInput}
               />
@@ -159,7 +182,9 @@ export default function LoginModal({ open, onClose }) {
                 checked={agree}
                 onChange={(e) => setAgree(e.target.checked)}
               />
-              <span>I agree to <u>Terms & Conditions</u></span>
+              <span>
+                I agree to <u>Terms & Conditions</u>
+              </span>
             </label>
           </>
         )}

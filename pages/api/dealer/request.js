@@ -79,6 +79,7 @@ export default async function handler(req, res) {
       mobile,
       dealerType,
       company: body.company || "",
+      reraNumber: body.reraNumber || "",
       country: body.country || "",
       state: body.state || "",
       city: body.city || "",

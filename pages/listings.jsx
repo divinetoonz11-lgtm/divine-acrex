@@ -1,137 +1,237 @@
-// pages/listings.jsx
-import React, { useState, useMemo, useEffect } from "react"; // ← ADD useEffect
+
+import React, { useState, useEffect, useMemo } from "react";
 import ListingSearchAndFilters from "../components/ListingSearchAndFilters";
 import PropertyCard from "../components/PropertyCard";
 import SearchBar from "../components/SearchBar";
 import styles from "../styles/ListingsPage.module.css";
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 12;
 
 export default function ListingsPage() {
-  // duplicate dummy data to reach 20 so pagination visible
-  const base = [
-    {
-      image: "/images/listing-example-1.png",
-      title: "Premium Property 1",
-      subtitle: "Mahalaxmi — 3 BHK Apartment",
-      price: "₹85 Lacs",
-      badges: ["Verified", "RERA"],
-      amenities: ["Parking", "Lift", "Gym"],
-    },
-    {
-      image: "/images/listing-example-2.png",
-      title: "Premium Property 2",
-      subtitle: "Malad West — 2 BHK Apartment",
-      price: "₹1.1 Cr",
-      badges: ["Verified"],
-      amenities: ["Parking", "Swimming Pool", "Power Backup"],
-    },
-    {
-      image: "/images/listing-example-3.png",
-      title: "Premium Property 3",
-      subtitle: "Juhu — 3 BHK Apartment",
-      price: "₹1.6 Cr",
-      badges: ["Verified", "RERA"],
-      amenities: ["Gym", "Lift", "CCTV"],
-    },
-    {
-      image: "/images/listing-example-4.png",
-      title: "Premium Property 4",
-      subtitle: "Goregaon East — 4 BHK Apartment",
-      price: "₹2.1 Cr",
-      badges: ["RERA"],
-      amenities: ["Parking", "Club House", "Gym"],
-    },
-    {
-      image: "/images/listing-example-5.png",
-      title: "Premium Property 5",
-      subtitle: "Bandra West — 2 BHK Apartment",
-      price: "₹1.8 Cr",
-      badges: [],
-      amenities: ["CCTV", "Lift"],
-    },
-    {
-      image: "/images/listing-example-6.png",
-      title: "Premium Property 6",
-      subtitle: "Lower Parel — 3 BHK Apartment",
-      price: "₹2.5 Cr",
-      badges: ["Verified"],
-      amenities: ["Swimming Pool", "Gym"],
-    },
-    {
-      image: "/images/featured-1.png",
-      title: "Featured Property 1",
-      subtitle: "Juhu — 4 BHK Villa",
-      price: "₹4.5 Cr",
-      badges: ["Featured"],
-      amenities: ["Parking", "Garden", "Lift"],
-    },
-    {
-      image: "/images/featured-2.png",
-      title: "Featured Property 2",
-      subtitle: "Malad — 3 BHK Apartment",
-      price: "₹1.9 Cr",
-      badges: ["Featured"],
-      amenities: ["Gym", "Club House", "CCTV"],
-    },
-    {
-      image: "/images/featured-3.png",
-      title: "Featured Property 3",
-      subtitle: "Andheri West — 2 BHK Apartment",
-      price: "₹1.3 Cr",
-      badges: [],
-      amenities: ["Parking", "Power Backup"],
-    },
-    {
-      image: "/images/featured-4.png",
-      title: "Featured Property 4",
-      subtitle: "Santacruz — Luxury 3 BHK",
-      price: "₹3.7 Cr",
-      badges: ["RERA"],
-      amenities: ["Gym", "Parking", "Swimming Pool"],
-    },
-  ];
 
-  // duplicate to 20
-  const properties = [...base, ...base.map((p,i)=>({...p, title: p.title + " (More)"}))];
+  const [realProperties, setRealProperties] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  // ---------- ADD: LIVE DATA ----------
-  const [live, setLive] = useState([]);
+  /* ================= REAL FETCH ================= */
 
   useEffect(() => {
-    fetch("/api/properties?role=PUBLIC")
-      .then(r => r.json())
-      .then(d => {
-        if (Array.isArray(d)) {
-          const mapped = d.map(p => ({
-            image: "/images/listing-example-1.png", // dummy image use
-            title: p.title,
-            subtitle: `${p.location} — ${p.propertyType}`,
-            price: p.price >= 10000000
-              ? `₹${(p.price/10000000).toFixed(2)} Cr`
-              : `₹${(p.price/100000).toFixed(0)} Lacs`,
-            badges: ["Live"],
-            amenities: ["Verified"],
-          }));
-          setLive(mapped);
-        }
+    fetch(`/api/properties?role=PUBLIC&page=${page}&limit=${PAGE_SIZE}`)
+      .then(res => res.json())
+      .then(res => {
+
+        const list = Array.isArray(res)
+          ? res
+          : Array.isArray(res?.data)
+          ? res.data
+          : [];
+
+        const mapped = list.map(p => {
+
+          let firstImage = null;
+
+          if (Array.isArray(p.photos) && p.photos.length > 0) {
+            const valid = p.photos.find(img => typeof img === "string" && img.trim());
+            if (valid) firstImage = valid;
+          }
+
+          if (!firstImage && Array.isArray(p.images) && p.images.length > 0) {
+            firstImage = p.images[0];
+          }
+
+          return {
+            id: p._id || p.id,
+            title: p.title || "Property",
+            location: `${p.locality || ""}${p.city ? ", " + p.city : ""}`,
+            price: formatPrice(p.price),
+            description: p.description || "",
+            images: firstImage ? [firstImage] : [],
+            video: p.video || (Array.isArray(p.videos) ? p.videos[0] : null),
+            bhk: p.bhk,
+            area: p.area,
+            baths: p.baths,
+            amenities: p.amenities || [],
+            postedBy: p.postedBy || "Owner",
+            dealerName: p.dealerName || "",
+            companyName: p.companyName || "",
+            ownerName: p.ownerName || "",
+            isApproved: true,
+            isDummy: false
+          };
+        });
+
+        setRealProperties(mapped);
+        setTotalPages(res?.totalPages || 1);
+
       })
-      .catch(()=>setLive([]));
-  }, []);
-  // ---------- ADD END ----------
+      .catch(() => setRealProperties([]));
+  }, [page]);
 
-  // ---------- ADD: MERGE (LIVE + DUMMY) ----------
-  const renderProperties = [...live, ...properties];
-  // ---------- ADD END ----------
+  /* ================= 10 DUMMY PROPERTIES ================= */
 
-  const [page, setPage] = useState(1);
+  const dummyProperties = [
 
-  const totalPages = Math.ceil(renderProperties.length / PAGE_SIZE);
+    {
+      id: "listing-1",
+      title: "2 BHK Flat for Sale in Bandra West",
+      location: "Bandra West, Mumbai",
+      price: "₹1.95 Cr",
+      images: ["/images/listing-example-1.png"],
+      bhk: 2,
+      area: 980,
+      baths: 2,
+      amenities: ["Lift", "Parking", "Security", "Power Backup"],
+      postedBy: "Dealer",
+      companyName: "Divine Acres Realty",
+      isApproved: true,
+      isDummy: true
+    },
 
-  const paged = useMemo(() => {
-    const start = (page-1)*PAGE_SIZE;
-    return renderProperties.slice(start, start + PAGE_SIZE);
-  }, [page, renderProperties]);
+    {
+      id: "listing-2",
+      title: "3 BHK Premium in Powai",
+      location: "Powai, Mumbai",
+      price: "₹2.75 Cr",
+      images: ["/images/listing-example-2.png"],
+      bhk: 3,
+      area: 1350,
+      baths: 2,
+      amenities: ["Swimming Pool", "Gym", "Club House"],
+      postedBy: "Owner",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "listing-3",
+      title: "2 BHK Rent in Andheri West",
+      location: "Andheri West, Mumbai",
+      price: "₹65,000 / month",
+      images: ["/images/listing-example-3.png"],
+      bhk: 2,
+      area: 850,
+      baths: 2,
+      amenities: ["Lift", "Parking", "Security"],
+      postedBy: "Dealer",
+      companyName: "Metro Homes",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "listing-4",
+      title: "4 BHK Luxury in Juhu",
+      location: "Juhu, Mumbai",
+      price: "₹5.00 Cr",
+      images: ["/images/listing-example-4.png"],
+      bhk: 4,
+      area: 1800,
+      baths: 3,
+      amenities: ["Swimming Pool", "Gym", "Lift"],
+      postedBy: "Dealer",
+      companyName: "Sudocaz India Pvt Ltd",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "listing-5",
+      title: "3 BHK in Malad West",
+      location: "Malad West, Mumbai",
+      price: "₹1.85 Cr",
+      images: ["/images/listing-example-5.png"],
+      bhk: 3,
+      area: 1200,
+      baths: 2,
+      amenities: ["Club House", "Gym", "Lift"],
+      postedBy: "Owner",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "listing-6",
+      title: "2 BHK in Goregaon East",
+      location: "Goregaon East, Mumbai",
+      price: "₹1.55 Cr",
+      images: ["/images/listing-example-6.png"],
+      bhk: 2,
+      area: 900,
+      baths: 2,
+      amenities: ["Lift", "Security", "Power Backup"],
+      postedBy: "Dealer",
+      companyName: "Urban Living Realty",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "featured-2",
+      title: "Commercial Office in Andheri East",
+      location: "Andheri East, Mumbai",
+      price: "₹7 Lacs / month",
+      images: ["/images/featured-2.png"],
+      area: 2500,
+      amenities: ["Lift", "Power Backup", "CCTV"],
+      postedBy: "Dealer",
+      companyName: "Mumbai Commercial Hub",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "featured-3",
+      title: "Boutique Hotel in Lonavala",
+      location: "Lonavala, Maharashtra",
+      price: "₹12.00 Cr",
+      images: ["/images/featured-3.png"],
+      area: 18000,
+      amenities: ["Swimming Pool", "Restaurant", "Parking"],
+      postedBy: "Dealer",
+      companyName: "Hospitality Ventures",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "featured-7",
+      title: "Luxury Resort in Alibaug",
+      location: "Alibaug, Maharashtra",
+      price: "₹18.50 Cr",
+      images: ["/images/featured-7.png"],
+      area: 25000,
+      amenities: ["Private Beach", "Swimming Pool", "Restaurant"],
+      postedBy: "Dealer",
+      companyName: "Coastal Hospitality Group",
+      isApproved: true,
+      isDummy: true
+    },
+
+    {
+      id: "listing-7",
+      title: "3 BHK in Borivali West",
+      location: "Borivali West, Mumbai",
+      price: "₹2.10 Cr",
+      images: ["/images/featured-1.png"],
+      bhk: 3,
+      area: 1300,
+      baths: 2,
+      amenities: ["Lift", "Parking", "Gym"],
+      postedBy: "Owner",
+      isApproved: true,
+      isDummy: true
+    }
+
+  ];
+
+  /* ================= MERGED ================= */
+
+  const merged = useMemo(() => {
+    return [
+      ...(Array.isArray(realProperties) ? realProperties : []),
+      ...dummyProperties
+    ];
+  }, [realProperties]);
 
   return (
     <div className={styles.pageWrapper}>
@@ -141,28 +241,21 @@ export default function ListingsPage() {
         <ListingSearchAndFilters />
 
         <div className={styles.resultsColumn}>
-          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-            <h2 className={styles.resultsTitle}>
-              {renderProperties.length} results | Property in City
-            </h2>
-            <div style={{color:'#6b7280'}}>
-              Showing {(page-1)*PAGE_SIZE + 1} - {Math.min(page*PAGE_SIZE, renderProperties.length)} of {renderProperties.length}
-            </div>
-          </div>
-
           <div className={styles.cardsList}>
-            {paged.map((p,i) => (
-              <PropertyCard key={i} {...p} />
+            {merged.map(p => (
+              <PropertyCard key={p.id} {...p} />
             ))}
-          </div>
-
-          <div className={styles.pagination} style={{marginTop:20}}>
-            <button onClick={()=>setPage(p=>Math.max(1,p-1))} disabled={page===1}>Prev</button>
-            <span>Page {page} of {totalPages}</span>
-            <button onClick={()=>setPage(p=>Math.min(totalPages,p+1))} disabled={page===totalPages}>Next</button>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+function formatPrice(price) {
+  const num = Number(price);
+  if (!num || num <= 0) return "Price on Request";
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)} Cr`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(0)} Lacs`;
+  return `₹${num.toLocaleString("en-IN")}`;
 }

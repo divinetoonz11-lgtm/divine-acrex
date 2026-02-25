@@ -1,4 +1,5 @@
-import clientPromise from "../../../../lib/mongodb";
+import dbConnect from "../../../../utils/dbConnect";
+import Property from "../../../../models/Property";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
 
@@ -6,27 +7,48 @@ export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions);
   if (!session) return res.status(401).end();
 
-  const client = await clientPromise;
-  const db = client.db();
-  const p = await db.collection("properties").find({}).toArray();
+  try {
+    await dbConnect();
 
-  const today = new Date().toDateString();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-  res.json({
-    total: p.length,
-    pending: p.filter(x => x.status === "pending").length,
-    live: p.filter(x => x.status === "live").length,
-    blocked: p.filter(x => x.status === "blocked").length,
-    spam: p.filter(x => x.spam).length,
-    featured: p.filter(x => x.featured).length,
-    users: p.filter(x => x.postedBy === "Owner").length,
-    dealers: p.filter(x => x.postedBy === "Dealer").length,
-    builders: p.filter(x => x.postedBy === "Builder").length,
-    verified: p.filter(x => x.verified === true).length,
-    unverified: p.filter(x => x.verified !== true).length,
-    today: p.filter(x =>
-      x.createdAt &&
-      new Date(x.createdAt).toDateString() === today
-    ).length,
-  });
+    const stats = await Property.aggregate([
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          pending: [{ $match: { status: "pending" } }, { $count: "count" }],
+          live: [{ $match: { status: "live" } }, { $count: "count" }],
+          blocked: [{ $match: { status: "blocked" } }, { $count: "count" }],
+          spam: [{ $match: { spam: true } }, { $count: "count" }],
+          featured: [{ $match: { featured: true } }, { $count: "count" }],
+          verified: [{ $match: { verified: true } }, { $count: "count" }],
+          today: [
+            { $match: { createdAt: { $gte: todayStart } } },
+            { $count: "count" }
+          ]
+        }
+      }
+    ]);
+
+    const result = stats[0];
+
+    res.json({
+      total: result.total[0]?.count || 0,
+      pending: result.pending[0]?.count || 0,
+      live: result.live[0]?.count || 0,
+      blocked: result.blocked[0]?.count || 0,
+      spam: result.spam[0]?.count || 0,
+      featured: result.featured[0]?.count || 0,
+      verified: result.verified[0]?.count || 0,
+      unverified:
+        (result.total[0]?.count || 0) -
+        (result.verified[0]?.count || 0),
+      today: result.today[0]?.count || 0,
+    });
+
+  } catch (err) {
+    console.error("OVERVIEW ERROR:", err);
+    res.status(500).json({ ok: false });
+  }
 }

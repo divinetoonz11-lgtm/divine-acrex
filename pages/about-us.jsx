@@ -26,20 +26,20 @@ export default function AboutUsPage() {
         </h1>
 
         <p>
-          <strong>Divine Acres</strong> is a modern digital real estate platform
-          developed to simplify property discovery, listing, and connectivity
-          between buyers, sellers, owners, and verified dealers across India.
-          The platform operates as a technology-enabled intermediary, ensuring
-          transparency, accessibility, and efficiency in the real estate
-          ecosystem.
+          <strong>Divine Acres</strong> is a modern digital real estate technology
+          platform developed to simplify property discovery, listing, and direct
+          connectivity between buyers, sellers, property owners, and verified
+          real estate dealers across India. The platform functions as a
+          technology-enabled intermediary, focused on transparency, efficiency,
+          and structured engagement within the real estate ecosystem.
         </p>
 
         <p>
           Divine Acres is operated under{" "}
           <strong>Sai Helimak TDI Solutions</strong>, a Mumbai-based proprietary
           firm engaged in technology-driven business solutions. The platform is
-          built with a strong focus on compliance, user trust, and scalable
-          digital infrastructure.
+          designed with a strong emphasis on regulatory compliance, data
+          security, user trust, and scalable digital infrastructure.
         </p>
 
         <h2 style={{ fontSize: 22, marginTop: 30 }}>
@@ -69,18 +69,39 @@ export default function AboutUsPage() {
         </h2>
 
         <p>
-          The platform is led by <strong>Ms. Deepika Awasthi</strong>, Founder &
-          CEO of Divine Acres and Proprietor of Sai Helimak TDI Solutions.
+          Divine Acres is co-founded and led by industry professionals with
+          complementary expertise in technology, operations, hospitality, and
+          real estate business development.
         </p>
 
         <p>
-          Ms. Deepika Awasthi brings valuable professional experience from the
-          hospitality and service industry, having worked with{" "}
-          <strong>Kempinski Hotels & Resorts Pvt. Ltd.</strong>, an internationally
-          recognized luxury hotel brand. Her background in premium hospitality
-          operations, customer experience management, and corporate processes
-          forms the foundation of Divine Acres’ service-oriented and
-          trust-driven approach.
+          <strong>Ms. Deepika Awasthi</strong>, Co-Founder & CEO of Divine Acres
+          and Proprietor of Sai Helimak TDI Solutions, brings professional
+          experience from the hospitality and service industry. She has worked
+          with <strong>Kempinski Hotels & Resorts Pvt. Ltd.</strong>, an
+          internationally recognized luxury hospitality brand. Her background
+          in premium customer experience, operational management, and corporate
+          process execution forms the foundation of Divine Acres’ service-driven,
+          compliance-oriented, and trust-focused platform philosophy.
+        </p>
+
+        <p>
+          <strong>Mr. Mahinder Sharma</strong>, Co-Founder of Divine Acres, brings
+          over <strong>20 years of extensive experience</strong> in the Indian
+          real estate sector. His professional expertise spans residential and
+          commercial real estate sales, property purchase advisory, dealer and
+          channel partner acquisition, strategic builder tie-ups, project
+          marketing, and end-to-end transaction facilitation.
+        </p>
+
+        <p>
+          With deep market understanding and long-standing relationships across
+          developers, builders, investors, and brokerage networks, Mr. Mahinder
+          Sharma plays a critical role in shaping Divine Acres’ real estate
+          market strategy, dealer ecosystem development, and on-ground business
+          expansion. His experience ensures that the platform aligns with
+          practical market realities while maintaining structured and ethical
+          business practices.
         </p>
 
         <h2 style={{ fontSize: 22, marginTop: 30 }}>
@@ -88,10 +109,11 @@ export default function AboutUsPage() {
         </h2>
 
         <p>
-          Our vision is to create a reliable, transparent, and scalable real
-          estate platform where users can explore property opportunities with
-          confidence, while dealers and owners benefit from structured digital
-          visibility and verified engagement.
+          Our vision is to build a reliable, transparent, and scalable real
+          estate technology platform where users can explore property
+          opportunities with confidence, while property owners, dealers, and
+          developers benefit from structured digital visibility, verified
+          engagement, and long-term value creation.
         </p>
 
         <h2 style={{ fontSize: 22, marginTop: 30 }}>
@@ -100,14 +122,16 @@ export default function AboutUsPage() {
 
         <p>
           Divine Acres does not act as a real estate broker, builder, developer,
-          or agent. The platform solely facilitates property listings and
-          information sharing. All property transactions are conducted directly
+          or agent. The platform solely provides a digital interface for property
+          listings, information sharing, and user connectivity. All property
+          negotiations, agreements, and transactions are conducted directly
           between users and the respective owners, developers, or authorized
-          agents.
+          representatives.
         </p>
 
         <p style={{ marginTop: 30, fontWeight: "bold" }}>
-          — Divine Acres Team<br />
+          — Divine Acres Team
+          <br />
           (A unit of Sai Helimak TDI Solutions)
         </p>
       </div>

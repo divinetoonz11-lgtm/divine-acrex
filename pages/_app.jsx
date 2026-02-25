@@ -4,7 +4,7 @@ import "../styles/admin.css";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-import Head from "next/head"; // ✅ ADDED (REQUIRED)
+import Head from "next/head";
 
 import { SessionProvider, useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
@@ -13,14 +13,10 @@ import { useEffect } from "react";
 import Script from "next/script";
 import * as ga from "../lib/ga";
 
-// ✅ KEEP (safe, no UI impact)
 import { LanguageProvider } from "../context/LanguageContext";
 
 /* ======================================================
-   🔒 ROLE SYNC GUARD (SAFE VERSION)
-   ------------------------------------------------------
-   ❌ LOGIN TIME PE DISABLED
-   ✅ ONLY DASHBOARD KE ANDAR KAAM KAREGA
+   🔒 ROLE SYNC GUARD (UNCHANGED)
 ====================================================== */
 function RoleSyncGuard() {
   const { data: session, status } = useSession();
@@ -29,7 +25,7 @@ function RoleSyncGuard() {
   useEffect(() => {
     if (status !== "authenticated") return;
 
-    // ❌ LOGIN / AUTH FLOW ME KABHI RUN NA HO
+    // ❌ login/auth flow me kabhi run na ho
     if (
       router.pathname.startsWith("/login") ||
       router.pathname.startsWith("/auth")
@@ -41,11 +37,32 @@ function RoleSyncGuard() {
       .then((r) => r.json())
       .then((j) => {
         if (j?.forceLogout) {
-          signOut({ callbackUrl: "/login" });
+          signOut({ callbackUrl: "/" });
         }
       })
       .catch(() => {});
   }, [status, router.pathname]);
+
+  return null;
+}
+
+/* ======================================================
+   ✅ DASHBOARD REDIRECT (FINAL FIX)
+====================================================== */
+function DashboardRedirect() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    if (router.pathname !== "/") return;
+
+    const role = session?.user?.role;
+
+    if (role === "admin") router.replace("/admin/dashboard");
+    else if (role === "dealer") router.replace("/dealer/dashboard");
+    else if (role === "user") router.replace("/user/dashboard");
+  }, [status, session, router.pathname]);
 
   return null;
 }
@@ -69,7 +86,7 @@ export default function MyApp({ Component, pageProps }) {
     };
   }, [router.events]);
 
-  // ✅ TAWK.TO CHAT (CLIENT SIDE – SAFE)
+  // ✅ TAWK.TO CHAT
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -89,14 +106,16 @@ export default function MyApp({ Component, pageProps }) {
 
   return (
     <SessionProvider session={pageProps.session}>
-      {/* ✅ VIEWPORT META (CORRECT PLACE) */}
       <Head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
       <LanguageProvider>
-        {/* 🔒 SAFE ROLE SYNC */}
+        {/* 🔒 Existing logic */}
         <RoleSyncGuard />
+
+        {/* ✅ LOGIN → DASHBOARD FIX */}
+        <DashboardRedirect />
 
         {ga.GA_ID && (
           <>

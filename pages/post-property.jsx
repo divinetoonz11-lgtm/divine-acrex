@@ -1,9 +1,11 @@
 // pages/post-property.jsx
 import React, { useState, useEffect } from "react";
 import Router from "next/router";
+import { useRouter } from "next/router";
+
 
 const MAX_PHOTOS = 8;
-const MAX_VIDEO_MB = 5;
+const MAX_VIDEO_MB = 20;
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm"];
 
@@ -17,7 +19,11 @@ const PEOPLE_CAPACITY_OPTIONS = ["Any", "50-100", "100-200", "200-300", "300-500
 
 export default function PostProperty() {
   // common
+  const router = useRouter();
+  const { id } = router.query;
+  const isEdit = router.isReady && typeof id === "string";
   const [postedBy, setPostedBy] = useState("");
+  const [title, setTitle] = useState("");
   const [listingFor, setListingFor] = useState(""); // Sell / Rent / Lease
   const [category, setCategory] = useState(""); // residential / commercial / hotel
   const [propertyType, setPropertyType] = useState("");
@@ -33,7 +39,9 @@ export default function PostProperty() {
   const [vastu, setVastu] = useState("");
   const [description, setDescription] = useState("");
   const [mobile, setMobile] = useState("");
-
+  const [dealerName, setDealerName] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [ownerName, setOwnerName] = useState("");
   // commercial
   const [commBuiltUp, setCommBuiltUp] = useState("");
   const [commCarpet, setCommCarpet] = useState("");
@@ -66,86 +74,188 @@ export default function PostProperty() {
   ];
   const [amenities, setAmenities] = useState([]);
 
-  // media
-  const [photos, setPhotos] = useState([]);
-  const [photoPreview, setPhotoPreview] = useState([]);
-  const [video, setVideo] = useState(null);
-  const [videoName, setVideoName] = useState("");
+ // media (photos / video) — NORMAL UPLOAD
+const [images, setImages] = useState([]);
+const [videos, setVideos] = useState([]);
+const [videoProgress, setVideoProgress] = useState(0);
+
+// verification intent (NO CAMERA HERE)
+// real camera + live GPS verification happens later
+// from My Properties / Edit Property page only
+const [verifyNow, setVerifyNow] = useState(false);     // user/dealer intent
+const [verificationNote] = useState(
+  "Live verification will be completed after posting from My Properties."
+);
+
 
   // UI
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    // reset propertyType when category changes
-    setPropertyType("");
-    setHotelType("");
-    setMsg("");
-    // clear previews when switching category optionally
-    // setPhotoPreview([]);
-    // setPhotos([]);
-  }, [category]);
+  if (isEdit) return;   // 🔥 EDIT mode में reset मत करो
+
+  setPropertyType("");
+  setHotelType("");
+  setMsg("");
+}, [category]);
+
+
+useEffect(() => {
+  if (!router.isReady) return;
+  if (!id || id.length !== 24) return;
+
+  fetch(`/api/properties/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) return;
+
+      const p = d.data;
+
+      setPostedBy(
+        p.postedBy
+          ? p.postedBy.charAt(0).toUpperCase() +
+            p.postedBy.slice(1).toLowerCase()
+          : ""
+      );
+
+      setTitle(p.title || "");
+      setListingFor((p.listingFor || "").toLowerCase());
+      setCategory((p.category || "").toLowerCase());
+      setPropertyType(p.propertyType || "");
+      setFurnishing(p.furnishing || "");
+      setPrice(p.price || "");
+      setBhk(p.bhk || "");
+      setArea(p.area || "");
+      setStateName(p.state || "");
+      setCity(p.city || "");
+      setLocality(p.locality || "");
+      setSociety(p.society || "");
+      setFloor(p.floor || "");
+      setVastu(p.vastu || "");
+      setDescription(p.description || "");
+      setMobile(p.mobile || p.phone || "");
+      setAmenities(p.amenities || []);
+    });
+}, [router.isReady, id]);
 
   function toggleAmenity(a) {
     setAmenities(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
   }
 
-  // photo handler (max 8)
-  function handlePhotos(e) {
-    const files = Array.from(e.target.files || []);
-    if (photos.length + files.length > MAX_PHOTOS) {
-      setMsg(`Maximum ${MAX_PHOTOS} photos allowed.`);
-      return;
+  // ================= CLOUDINARY PHOTO UPLOAD =================
+
+async function uploadImage(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", "property_images");
+
+  const res = await fetch(
+    "https://api.cloudinary.com/v1_1/dzym7cbx2/image/upload",
+    { method: "POST", body: formData }
+  );
+
+  const data = await res.json();
+  return data.secure_url;
+}
+async function uploadVideo(file) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "property_videos");
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.open(
+      "POST",
+      "https://api.cloudinary.com/v1_1/dzym7cbx2/auto/upload"
+    );
+
+    xhr.upload.onprogress = function (event) {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded * 100) / event.total);
+        setVideoProgress(percent);
+      }
+    };
+
+    xhr.onload = function () {
+      const response = JSON.parse(xhr.responseText);
+      setVideoProgress(0);
+      resolve(response.secure_url);
+    };
+
+    xhr.onerror = function () {
+      setVideoProgress(0);
+      reject("Upload failed");
+    };
+
+    xhr.send(formData);
+  });
+}
+
+async function handlePhotos(e) {
+  const files = Array.from(e.target.files || []);
+
+  if (images.length + files.length > MAX_PHOTOS) {
+    setMsg(`Maximum ${MAX_PHOTOS} photos allowed.`);
+    return;
+  }
+
+  for (let file of files) {
+    if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) continue;
+
+    const url = await uploadImage(file);
+    if (url) {
+      setImages(prev => [...prev, url]);
     }
-    const valid = files.filter(f => ACCEPTED_IMAGE_TYPES.includes(f.type));
-    if (valid.length !== files.length) setMsg("कुछ फ़ाइल्स स्वीकार्य नहीं (jpg/png/webp)।");
-    else setMsg("");
+  }
+}
 
-    const add = valid.slice(0, MAX_PHOTOS - photos.length);
-    setPhotos(prev => [...prev, ...add]);
+// remove photo
+function removePhoto(index) {
+  setImages(prev => prev.filter((_, i) => i !== index));
+}
+   
 
-    add.forEach(f => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setPhotoPreview(prev => [...prev, { id: Date.now() + Math.random(), src: ev.target.result }]);
-      };
-      reader.readAsDataURL(f);
-    });
+// video handler (Cloudinary upload)
+async function handleVideo(e) {
+  const f = e.target.files?.[0];
+  if (!f) return;
+
+  if (!ACCEPTED_VIDEO_TYPES.includes(f.type)) {
+    setMsg("Video type mp4/webm ही स्वीकार्य है.");
+    return;
   }
 
-  function removePhoto(i) {
-    setPhotos(prev => prev.filter((_, idx) => idx !== i));
-    setPhotoPreview(prev => prev.filter((_, idx) => idx !== i));
+  if (f.size / 1024 / 1024 > MAX_VIDEO_MB) {
+    setMsg(`Video ${MAX_VIDEO_MB}MB से बड़ा नहीं होना चाहिए.`);
+    return;
   }
 
-  // video handler (only 1 allowed)
-  function handleVideo(e) {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!ACCEPTED_VIDEO_TYPES.includes(f.type)) { setMsg("Video type mp4/webm ही स्वीकार्य है."); return; }
-    if (f.size / 1024 / 1024 > MAX_VIDEO_MB) { setMsg(`Video ${MAX_VIDEO_MB}MB से बड़ा नहीं होना चाहिए.`); return; }
-    setVideo(f);
-    setVideoName(f.name);
-    setMsg("");
+  const url = await uploadVideo(f);
+  if (url) {
+    setVideos([url]); // only 1 video allowed
   }
+}
 
-  function removeVideo() {
-    setVideo(null);
-    setVideoName("");
-  }
-
-  // basic validation
-
+// remove video
+function removeVideo() {
+  setVideos([]);
+}
   
 function validate() {
-  if (!postedBy) { setMsg("Posted by चुने (Owner/Dealer/Builder)।"); return false; }
-  if (!listingFor) { setMsg("Sell / Rent / Lease चुने।"); return false; }
-  if (!category) { setMsg("Category चुने।"); return false; }
-  if (!propertyType && category !== "") { setMsg("Property Type चुने।"); return false; }
-  if (!price) { setMsg("Price भरें।"); return false; }
-  if (!city) { setMsg("City भरें।"); return false; }
-  if (!mobile) { setMsg("Contact mobile डालें।"); return false; }
-  if (category === "hotel" && !hotelType) { setMsg("Hotel type चुनें।"); return false; }
+
+  if (isEdit) return true;   // 🔥 EDIT में validation skip
+
+  if (!postedBy) { setMsg("Posted by चुनें"); return false; }
+  if (!listingFor) { setMsg("Listing type चुनें"); return false; }
+  if (!category) { setMsg("Category चुनें"); return false; }
+  if (!propertyType) { setMsg("Property type चुनें"); return false; }
+  if (!price) { setMsg("Price भरें"); return false; }
+  if (!stateName) { setMsg("State भरें"); return false; }
+  if (!city) { setMsg("City भरें"); return false; }
+  if (!mobile) { setMsg("Mobile भरें"); return false; }
+
   return true;
 }
 
@@ -164,24 +274,39 @@ function validate() {
     try {
       // NOTE: file uploads not implemented here (use multipart/S3). This sends metadata only.
         const payload = {
-        title: `${propertyType} in ${city}`,
+        title: title || `${propertyType} in ${city}`,
+
         postedBy, listingFor,  category, propertyType, furnishing, price: Number(price || 0),
         bhk, area: Number(area || 0), state: stateName, city, locality, society,
         floor, vastu, description, mobile, amenities,
+        dealerName: postedBy === "Dealer" ? dealerName : null,
+        companyName: postedBy === "Dealer" ? companyName : null,
+        ownerName: postedBy === "Owner" ? ownerName : null,
         commercial: category === "commercial" ? { commBuiltUp, commCarpet, commFrontage, commFloorLevel, commParkingCapacity } : null,
         hotel: category === "hotel" ? { hotelType, hotelRooms, hotelStarMin, hotelStarMax, hasBanquet, banquetArea, hasLawn, lawnArea, peopleCapacity, restaurantOnSite, barOnSite, hasSwimmingPool, hasAdventurePark, hasWaterPark, hotelParkingCapacity } : null,
-        photosCount: photos.length,
-        videoName: videoName || null,
+        images, videos,
       };
 
       // demo POST — replace endpoint as needed
-      const res = await fetch("/api/properties", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const url = isEdit
+  ? `/api/properties/${id}`
+  : "/api/properties";
 
-      if (!res.ok) throw new Error("Save failed");
+const method = isEdit ? "PUT" : "POST";
+
+const res = await fetch(url, {
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+
+
+      const data = await res.json();
+
+if (!res.ok || !data.ok) {
+  throw new Error(data.message || "Save failed");
+}
+
 
       setMsg("Property posted successfully!");
       setTimeout(() => {
@@ -203,7 +328,7 @@ function validate() {
     : category === "hotel" ? HOTEL_TYPES : [];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#e6f0ff", padding: 18, fontFamily: "Inter, Arial, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#e6f0ff", padding: "18px", fontFamily: "Inter, Arial, sans-serif" }}>
       <div style={{
         maxWidth: 1200, margin: "0 auto", background: "#fff",
         padding: 20, borderRadius: 12, boxShadow: "0 6px 30px rgba(2,12,45,0.08)"
@@ -213,11 +338,21 @@ function validate() {
           <div style={{ fontSize: 13, color: "#666" }}>Free listing • Quick publish</div>
         </header>
 
-        <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 18 }}>
+        <form
+  className="postForm"
+  onSubmit={handleSubmit}
+>
           {/* LEFT */}
-          <div>
+<div className="leftSection">
             <div style={{ background: "#f9fbff", padding: 12, borderRadius: 10, border: "1px solid #e3ebff", marginBottom: 12 }}>
               <h3 style={{ margin: "0 0 8px 0", color: "#002b80" }}>Basic Details</h3>
+<label style={lbl}>Property Title *</label>
+<input
+  value={title}
+  onChange={e => setTitle(e.target.value)}
+  style={inpt}
+  placeholder="2 BHK Flat for Rent in Malad West"
+/>
 
              <label style={lbl}>Posted By *</label>
 <select value={postedBy} onChange={e => setPostedBy(e.target.value)} style={inpt}>
@@ -227,7 +362,37 @@ function validate() {
   <option>Builder</option>
   <option>Broker</option>
 </select>
+{postedBy === "Dealer" && (
+  <>
+    <label style={lbl}>Company Name *</label>
+    <input
+      value={companyName}
+      onChange={e => setCompanyName(e.target.value)}
+      style={inpt}
+      placeholder="Enter Company Name"
+    />
 
+    <label style={lbl}>Dealer Name *</label>
+    <input
+      value={dealerName}
+      onChange={e => setDealerName(e.target.value)}
+      style={inpt}
+      placeholder="Enter Dealer Name"
+    />
+  </>
+)}
+
+{postedBy === "Owner" && (
+  <>
+    <label style={lbl}>Owner Name *</label>
+    <input
+      value={ownerName}
+      onChange={e => setOwnerName(e.target.value)}
+      style={inpt}
+      placeholder="Enter Owner Name"
+    />
+  </>
+)}
 {/* 🔽 NEW BOX – 3rd POSITION */}
 <label style={lbl}>Listing For *</label>
 <select value={listingFor} onChange={e => setListingFor(e.target.value)} style={inpt}>
@@ -415,63 +580,197 @@ function validate() {
               <input value={mobile} onChange={e => setMobile(e.target.value)} style={inpt} placeholder="e.g. 9867402515" />
             </div>
 
-            <div style={{ marginTop: 8 }}>
-              <button type="submit" disabled={saving} style={submitBtn}>
-                {saving ? "Saving..." : "Post Property"}
-              </button>
-              {msg && <div style={{ marginTop: 10, color: "#0039c9", fontWeight: 700 }}>{msg}</div>}
-            </div>
-          </div>
+            
+                    {/* RIGHT */}
+<div className="rightSection">
 
-          {/* RIGHT */}
-          <div>
+            {/* Location */}
             <div style={sectionCardStyle}>
               <h3 style={cardTitle}>Location</h3>
+
               <label style={lbl}>State</label>
-              <input value={stateName} onChange={e => setStateName(e.target.value)} style={inpt} placeholder="Maharashtra, Delhi…" />
+              <input
+                value={stateName}
+                onChange={e => setStateName(e.target.value)}
+                style={inpt}
+                placeholder="Maharashtra, Delhi…"
+              />
 
               <label style={lbl}>City</label>
-              <input value={city} onChange={e => setCity(e.target.value)} style={inpt} placeholder="Mumbai, Pune…" />
+              <input
+                value={city}
+                onChange={e => setCity(e.target.value)}
+                style={inpt}
+                placeholder="Mumbai, Pune…"
+              />
 
               <label style={lbl}>Locality / Landmark</label>
-              <input value={locality} onChange={e => setLocality(e.target.value)} style={inpt} placeholder="Andheri East, Malad…" />
+              <input
+                value={locality}
+                onChange={e => setLocality(e.target.value)}
+                style={inpt}
+                placeholder="Andheri East, Malad…"
+              />
             </div>
 
+
+            {/* Photos */}
             <div style={sectionCardStyle}>
               <h3 style={cardTitle}>Photos (Max {MAX_PHOTOS})</h3>
-              <input type="file" accept="image/*" multiple onChange={handlePhotos} />
+
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handlePhotos}
+              />
+
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-                {photoPreview.map((p, i) => (
-                  <div key={p.id} style={{ width: 92, height: 68, position: "relative", borderRadius: 6, overflow: "hidden", border: "1px solid #e9f0ff" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.src} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <button type="button" onClick={() => removePhoto(i)} style={removeBtn}>x</button>
+                {images.map((img, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: 92,
+                      height: 68,
+                      position: "relative",
+                      borderRadius: 6,
+                      overflow: "hidden",
+                      border: "1px solid #e9f0ff"
+                    }}
+                  >
+                    <img
+                      src={img}
+                      alt="preview"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover"
+                      }}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(i)}
+                      style={{
+                        position: "absolute",
+                        top: 4,
+                        right: 4,
+                        background: "rgba(0,0,0,0.6)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 4,
+                        padding: "2px 6px",
+                        cursor: "pointer"
+                      }}
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div style={sectionCardStyle}>
-              <h3 style={cardTitle}>Video (Max {MAX_VIDEO_MB} MB)</h3>
-              <input type="file" accept="video/*" onChange={handleVideo} />
-              {videoName && (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ fontSize: 13 }}>{videoName}</div>
-                  <button type="button" onClick={removeVideo} style={smallRemoveBtn}>Remove</button>
-                </div>
-              )}
-              <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>Tip: Prefer mp4, size &lt; {MAX_VIDEO_MB}MB</div>
-            </div>
+{/* Video */}
+<div style={sectionCardStyle}>
+  <h3 style={cardTitle}>Video (Max {MAX_VIDEO_MB} MB)</h3>
 
+  <input
+    type="file"
+    accept="video/*"
+    onChange={handleVideo}
+  />
+  {videoProgress > 0 && (
+  <div style={{ marginTop: 10 }}>
+    <div style={{
+      height: 8,
+      width: "100%",
+      background: "#e0e7ff",
+      borderRadius: 6,
+      overflow: "hidden"
+    }}>
+      <div style={{
+        height: "100%",
+        width: `${videoProgress}%`,
+        background: "#0039c9",
+        transition: "width 0.3s ease"
+      }} />
+    </div>
+    <div style={{ fontSize: 12, marginTop: 4 }}>
+      Uploading: {videoProgress}%
+    </div>
+  </div>
+)}
+
+  {videos.length > 0 && (() => {
+    const optimizedVideo = videos[0].replace(
+      "/upload/",
+      "/upload/q_auto,f_auto,vc_auto,w_720/"
+    );
+
+    const thumbnail = videos[0]
+      .replace("/upload/", "/upload/so_2,w_400/")
+      .replace(".mp4", ".jpg");
+
+    return (
+      <div style={{ marginTop: 10 }}>
+        <video
+          src={optimizedVideo}
+          poster={thumbnail}
+          controls
+          style={{ width: "100%", borderRadius: 8 }}
+        />
+
+        <button
+          type="button"
+          onClick={removeVideo}
+          style={{
+            marginTop: 6,
+            background: "red",
+            color: "#fff",
+            border: "none",
+            padding: "6px 10px",
+            borderRadius: 6,
+            cursor: "pointer"
+          }}
+        >
+          Remove Video
+        </button>
+      </div>
+    );
+  })()}
+
+  <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
+    Tip: Prefer mp4, size &lt; {MAX_VIDEO_MB}MB
+  </div>
+</div>                     
+
+
+            {/* Preview */}
             <div style={sectionCardStyle}>
               <h3 style={cardTitle}>Preview</h3>
+
               <div style={{ fontSize: 13, color: "#333" }}>
                 <div><strong>{propertyType || "—"}</strong></div>
-                <div>{city ? `${city} • ${locality || ""}` : "Location not set"}</div>
-                <div style={{ marginTop: 8 }}>{price ? `₹ ${price}` : "Price not set"}</div>
+                <div>
+                  {city ? `${city} • ${locality || ""}` : "Location not set"}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  {price ? `₹ ${price}` : "Price not set"}
+                </div>
               </div>
             </div>
-          </div>
+
+          </div>  {/* rightSection close */}
+
+{/* SUBMIT BUTTON MOVED HERE */}
+<div style={{ marginTop: 8 }}>
+  <button type="submit" disabled={saving} style={submitBtn}>
+    {saving ? "Saving..." : "Post Property"}
+  </button>
+  {msg && <div style={{ marginTop: 10, color: "#0039c9", fontWeight: 700 }}>{msg}</div>}
+</div>
+</div>
+
         </form>
       </div>
 
@@ -479,14 +778,37 @@ function validate() {
       <style jsx>{`
         /* page bg */
         :global(body) { margin:0; }
+           .postForm {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 18px;
+  }
         .inpt { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #d6eaff; margin-top:6px; box-sizing:border-box; background:#fbfdff; }
         .inpt:focus { outline: none; box-shadow: 0 0 0 3px rgba(0,57,201,0.08); border-color:#0039c9; }
 
         /* layout helpers (used inline too) */
-        @media (max-width: 900px) {
-          form { grid-template-columns: 1fr !important; }
-        }
+                   @media (max-width: 900px) {
 
+  .postForm {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .leftSection {
+    order: 1;
+  }
+
+  .rightSection {
+    order: 2;
+    margin-top: 10px;
+  }
+
+  /* Submit button block (last div of leftSection) */
+  .leftSection > div:last-child {
+    order: 3;
+  }
+
+}
         /* remove default select tick / arrow (keep visual caret) */
         select {
           -webkit-appearance: none !important;
@@ -542,7 +864,7 @@ function amenityLabelStyle(active) {
     borderRadius: 6,
     fontSize: 13,
     cursor: "pointer"
-  };
+  }
 }
 
 

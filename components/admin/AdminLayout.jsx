@@ -26,18 +26,16 @@ const MENU = [
       ["Dealer Promotions", "/admin/dealer-promotions"],
     ],
   },
-
-  /* ================= PROPERTY MANAGEMENT (PROFESSIONAL) ================= */
   {
     title: "PROPERTY MANAGEMENT",
     items: [
-      ["Overview", "/admin/property-overview"],          // 🔥 NEW PAGE
-      ["All Properties", "/admin/properties"],           // 🔥 EXISTING property.jsx
-      ["Insights & Reports", "/admin/property-insights"],// 🔥 12 KPI + Graphs
+      ["Overview", "/admin/property-overview"],
+      ["All Properties", "/admin/properties"],
+      ["Property Control", "/admin/property-control"],
+      ["Insights & Reports", "/admin/insights_reports"],
       ["Abuse & Spam", "/admin/abuse"],
     ],
   },
-
   {
     title: "REVENUE MANAGEMENT",
     items: [
@@ -48,6 +46,17 @@ const MENU = [
       ["Ads & Promotions", "/admin/ads"],
     ],
   },
+
+  // ✅ NEW SECTION ADDED
+  {
+    title: "OWNER CONTACT MANAGEMENT",
+    items: [
+      ["Plans", "/admin/owner-contact-plans"],
+      ["Payments", "/admin/owner-contact-payments"],
+      ["Usage Logs", "/admin/owner-contact-logs"],
+    ],
+  },
+
   {
     title: "SYSTEM MANAGEMENT",
     items: [
@@ -99,7 +108,6 @@ export default function AdminLayout({ children }) {
 
       <main className="admin-main">{children}</main>
 
-      {/* ===== GLOBAL STYLES (UNCHANGED) ===== */}
       <style jsx global>{`
         .admin-root {
           display: flex;

@@ -1,16 +1,7 @@
-﻿// pages/api/admin/properties/update-status.js
-
-import dbConnect from "../../../../utils/dbConnect";
-import Property from "../../../../models/Property";
+﻿import clientPromise from "../../../../lib/mongodb";
+import { ObjectId } from "mongodb";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
-
-/*
-✔ REAL DB (mongoose)
-✔ SAFE admin auth (server-side)
-✔ NO React hooks
-✔ Approve / Block works
-*/
 
 const ADMIN_EMAILS = [
   "inder.ambalika@gmail.com",
@@ -19,7 +10,6 @@ const ADMIN_EMAILS = [
 
 export default async function handler(req, res) {
   try {
-    /* ================= METHOD CHECK ================= */
     if (req.method !== "PUT") {
       return res.status(405).json({
         ok: false,
@@ -27,8 +17,8 @@ export default async function handler(req, res) {
       });
     }
 
-    /* ================= ADMIN AUTH (SAFE) ================= */
     const session = await getServerSession(req, res, authOptions);
+
     if (!session || !ADMIN_EMAILS.includes(session.user?.email)) {
       return res.status(401).json({
         ok: false,
@@ -36,50 +26,59 @@ export default async function handler(req, res) {
       });
     }
 
-    /* ================= DB CONNECT ================= */
-    await dbConnect();
+    const { id, status, verified } = req.body;
 
-    const { id, status } = req.body;
-
-    if (!id || !status) {
+    if (!id || !ObjectId.isValid(id)) {
       return res.status(400).json({
         ok: false,
-        message: "id or status missing",
+        message: "Invalid property id",
       });
     }
 
-    const nextStatus = status.toLowerCase(); // pending | live | blocked
+    const client = await clientPromise;
+    const db = client.db("divineacres");
+    const col = db.collection("properties");
 
-    if (!["pending", "live", "blocked"].includes(nextStatus)) {
-      return res.status(400).json({
-        ok: false,
-        message: "Invalid status value",
-      });
+    let updateData = {
+      updatedAt: new Date(),
+    };
+
+    // STATUS UPDATE
+    if (status) {
+      if (!["pending", "live", "blocked"].includes(status)) {
+        return res.status(400).json({
+          ok: false,
+          message: "Invalid status",
+        });
+      }
+      updateData.status = status;
     }
 
-    /* ================= UPDATE PROPERTY ================= */
-    const property = await Property.findById(id);
+    // VERIFIED UPDATE
+    if (typeof verified === "boolean") {
+      updateData.verified = verified;
 
-    if (!property) {
-      return res.status(404).json({
-        ok: false,
-        message: "Property not found",
-      });
+      if (verified) {
+        updateData.approvedBy = session.user.email;
+        updateData.approvedAt = new Date();
+      } else {
+        updateData.approvedBy = null;
+        updateData.approvedAt = null;
+      }
     }
 
-    property.status = nextStatus;
-    property.updatedAt = new Date();
+    await col.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    );
 
-    await property.save();
-
-    /* ================= RESPONSE ================= */
     return res.status(200).json({
       ok: true,
-      property,
+      message: "Updated successfully",
     });
 
-  } catch (error) {
-    console.error("UPDATE STATUS API ERROR:", error);
+  } catch (err) {
+    console.error("ADMIN UPDATE ERROR:", err);
     return res.status(500).json({
       ok: false,
       message: "Server error",

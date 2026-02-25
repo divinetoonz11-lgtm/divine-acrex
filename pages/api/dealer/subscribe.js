@@ -1,74 +1,102 @@
 // pages/api/dealer/subscribe.js
-
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { PrismaClient } from "@prisma/client";
+import clientPromise from "../../../lib/mongodb";
 
-const prisma = new PrismaClient();
+/*
+DEALER SUBSCRIBE API – FINAL (MongoDB)
+✔ No Prisma
+✔ Referral supported
+✔ Commission slab supported
+✔ Admin approval flow
+*/
 
 export default async function handler(req, res) {
-  const session = await getServerSession(req, res, authOptions);
-
-  if (!session || !session.user?.email) {
-    return res.status(401).json({ ok: false });
-  }
-
+  /* ================= METHOD ================= */
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false });
+    return res.status(405).json({ ok: false, message: "Method not allowed" });
   }
 
-  const { plan, amount, referralCode } = req.body;
+  /* ================= AUTH ================= */
+  const session = await getServerSession(req, res, authOptions);
+  if (!session?.user?.email) {
+    return res.status(401).json({ ok: false, message: "Unauthorized" });
+  }
+
+  const { plan, amount, referralCode } = req.body || {};
 
   if (!plan || !amount) {
-    return res.json({ ok: false, message: "Plan or amount missing" });
-  }
-
-  // 🔹 Buyer
-  const buyer = await prisma.user.findUnique({
-    where: { email: session.user.email },
-  });
-
-  if (!buyer) {
-    return res.status(404).json({ ok: false });
-  }
-
-  // 🔹 Find referrer (dealer)
-  let referrer = null;
-  if (referralCode) {
-    referrer = await prisma.user.findFirst({
-      where: { referralCode },
+    return res.status(400).json({
+      ok: false,
+      message: "Plan or amount missing",
     });
   }
 
-  // 🔹 Commission calculation (simple)
+  const client = await clientPromise;
+  const db = client.db();
+
+  /* ================= BUYER (DEALER) ================= */
+  const buyer = await db.collection("users").findOne({
+    email: session.user.email,
+    role: { $in: ["dealer", "DEALER"] },
+    status: "active",
+  });
+
+  if (!buyer) {
+    return res.status(404).json({
+      ok: false,
+      message: "Dealer not found",
+    });
+  }
+
+  /* ================= REFERRER ================= */
+  let referrer = null;
+
+  if (referralCode) {
+    referrer = await db.collection("users").findOne({
+      referralCode,
+      role: { $in: ["dealer", "DEALER"] },
+    });
+  }
+
+  /* ================= COMMISSION LOGIC ================= */
   let commissionPercent = 0;
+
   if (referrer) {
-    commissionPercent = referrer.level >= 5 ? 20 :
-                        referrer.level === 4 ? 19 :
-                        referrer.level === 3 ? 17 :
-                        referrer.level === 2 ? 15 : 10;
+    const lvl = Number(referrer.level || 1);
+
+    commissionPercent =
+      lvl >= 5 ? 20 :
+      lvl === 4 ? 19 :
+      lvl === 3 ? 17 :
+      lvl === 2 ? 15 : 10;
   }
 
   const commissionAmount = referrer
-    ? Math.round((amount * commissionPercent) / 100)
+    ? Math.round((Number(amount) * commissionPercent) / 100)
     : 0;
 
-  // 🔹 Save subscription request
-  await prisma.subscriptionRequest.create({
-    data: {
-      userId: buyer.id,
-      plan,
-      amount,
-      referralCode: referralCode || null,
-      referrerId: referrer ? referrer.id : null,
-      commissionAmount,
-      commissionPercent,
-      status: "PENDING", // admin approval
-    },
+  /* ================= SAVE REQUEST ================= */
+  await db.collection("subscriptionRequests").insertOne({
+    buyerEmail: buyer.email,
+    buyerId: buyer._id,
+
+    plan,
+    amount: Number(amount),
+
+    referralCode: referralCode || null,
+    referrerId: referrer ? referrer._id : null,
+    commissionPercent,
+    commissionAmount,
+
+    status: "PENDING",            // 🔒 admin approval
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
   return res.json({
     ok: true,
-    message: "Subscription request sent. Commission will be credited after approval.",
+    message:
+      "Subscription request sent. Commission will be credited after admin approval.",
   });
 }

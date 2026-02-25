@@ -47,7 +47,7 @@ export default function Footer() {
                 📍 Malad West, Mumbai, Maharashtra
               </div>
               <div className={styles.contactLine}>
-                📞 +91 98674 02515
+                📞 +91 98674 02515, 7718977332, 9004377332
               </div>
               <div className={styles.contactLine}>
                 ✉️ divinetoonz11@gmail.com

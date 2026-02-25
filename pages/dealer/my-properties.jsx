@@ -1,148 +1,208 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 
-const DUMMY_IMAGES = [
-  "/images/listing-example-1.png",
-  "/images/listing-example-2.png",
-  "/images/listing-example-3.png",
-  "/images/listing-example-4.png",
-];
-
-const PAGE_SIZE = 8;
-
-export default function MyProperties() {
+export default function DealerMyProperties() {
+  const { data: session, status } = useSession();
   const router = useRouter();
+
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
   const [list, setList] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [photoIndex, setPhotoIndex] = useState({});
+  const [verifyingId, setVerifyingId] = useState(null);
+  const [stream, setStream] = useState(null);
 
-  /* ===== LOAD DATA ===== */
+  /* ================= AUTH ================= */
   useEffect(() => {
-    setLoading(true);
+    if (status === "unauthenticated") router.replace("/login");
+    if (session && session.user.role !== "dealer") router.replace("/");
+  }, [status, session]);
 
-    fetch(`/api/dealer/listings?page=${page}&limit=${PAGE_SIZE}`)
+  /* ================= LOAD MY PROPERTIES ================= */
+  useEffect(() => {
+    if (status !== "authenticated") return;
+
+    fetch("/api/dealer/my-listings")
       .then(r => r.json())
-      .then(j => {
-        setList(Array.isArray(j?.data) ? j.data : []);
-        setTotalPages(j.totalPages || 1);
+      .then(d => {
+        setList(Array.isArray(d?.data) ? d.data : []);
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, [page]);
+      });
+  }, [status]);
 
-  /* ===== DELETE ===== */
+  /* ================= DELETE ================= */
   async function deleteProperty(id) {
-    if (!confirm("Delete property?")) return;
+    if (!confirm("Delete this property?")) return;
+
+    await fetch("/api/dealer/my-listings", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId: id }),
+    });
 
     setList(p => p.filter(x => x._id !== id));
-    await fetch(`/api/dealer/listings?id=${id}`, { method: "DELETE" });
   }
 
-  const getImage = (p, i) =>
-    p?.images?.[0] || DUMMY_IMAGES[i % DUMMY_IMAGES.length];
+  /* ================= SOLD / RENTED ================= */
+  async function updateStatus(id, status) {
+    if (!confirm(`Mark as ${status}?`)) return;
 
-  const isVerified = p => p?.verificationStatus === "VERIFIED_LIVE";
+    await fetch("/api/dealer/my-listings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyId: id, status }),
+    });
 
-  if (loading) return <div style={pageStyle}>Loading…</div>;
+    setList(p =>
+      p.map(x =>
+        x._id === id ? { ...x, status } : x
+      )
+    );
+  }
+
+  /* ================= LIVE CAMERA VERIFY ================= */
+  async function startVerify(propertyId) {
+    if (!navigator.mediaDevices || !navigator.geolocation) {
+      alert("Camera / GPS not supported");
+      return;
+    }
+
+    const s = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+    });
+
+    videoRef.current.srcObject = s;
+    setStream(s);
+    setVerifyingId(propertyId);
+  }
+
+  async function captureAndVerify(propertyId) {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    navigator.geolocation.getCurrentPosition(async pos => {
+      await fetch("/api/common/verify-property", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId,
+          source: "LIVE_CAMERA",
+          gps: {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          },
+        }),
+      });
+
+      stream.getTracks().forEach(t => t.stop());
+      setStream(null);
+      setVerifyingId(null);
+
+      const r = await fetch("/api/dealer/my-listings");
+      const j = await r.json();
+      setList(Array.isArray(j?.data) ? j.data : []);
+    });
+  }
+
+  if (loading) return <div style={{ padding: 30 }}>Loading…</div>;
 
   return (
-    <div style={pageStyle}>
-      <h2 style={title}>My Properties</h2>
+    <div style={wrap}>
+      <h2>Dealer – My Properties</h2>
 
       {list.length === 0 ? (
-        <div style={empty}>No properties found</div>
+        <div style={card}>No properties posted yet.</div>
       ) : (
-        <>
-          <div style={grid}>
-            {list.map((p, i) => (
+        <div style={{ display: "grid", gap: 14 }}>
+          {list.map(p => {
+            const images = Array.isArray(p.images) ? p.images : [];
+            const idx = photoIndex[p._id] || 0;
+            const hasPhotos = images.length > 0;
+
+            return (
               <div key={p._id} style={card}>
-                <img src={getImage(p, i)} style={img} />
+                <b>{p.title}</b>
+                <div style={muted}>{p.city} • ₹{p.price}</div>
 
-                <div style={body}>
-                  <div style={row}>
-                    <b>{p.title}</b>
-                    {isVerified(p) ? (
-                      <span style={badgeGreen}>✔ Live Verified</span>
-                    ) : (
-                      <span style={badgeYellow}>⚠ Unverified</span>
-                    )}
-                  </div>
-
-                  <div style={location}>{p.city}</div>
-                  <div style={price}>₹ {p.price}</div>
-                  <div style={{ fontSize: 12 }}>Status: {p.status}</div>
-
-                  <div style={actions}>
-                    <button
-                      style={edit}
-                      onClick={() =>
-                        router.push(`/dealer/add-property?id=${p._id}`)
-                      }
-                    >
-                      Edit
-                    </button>
-
-                    {!isVerified(p) && (
-                      <button
-                        style={verify}
-                        onClick={() =>
-                          router.push(`/verify-property?id=${p._id}`)
-                        }
-                      >
-                        Verify
-                      </button>
-                    )}
-
-                    <button
-                      style={del}
-                      onClick={() => deleteProperty(p._id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                {/* PHOTO */}
+                <div style={photoFrame}>
+                  {hasPhotos ? (
+                    <img src={images[idx]} style={photoMain} />
+                  ) : (
+                    <div style={noPhoto}>No photos</div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
 
-          {/* PAGINATION */}
-          <div style={pagination}>
-            <button
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              Prev
-            </button>
-            <b>Page {page} / {totalPages}</b>
-            <button
-              disabled={page === totalPages}
-              onClick={() => setPage(p => p + 1)}
-            >
-              Next
-            </button>
-          </div>
-        </>
+                <div style={photoNav}>
+                  <button disabled={idx === 0}
+                    onClick={() => setPhotoIndex(s => ({ ...s, [p._id]: idx - 1 }))}>◀</button>
+                  <span>{hasPhotos ? idx + 1 : 0}/{Math.max(images.length, 1)}</span>
+                  <button disabled={idx >= images.length - 1}
+                    onClick={() => setPhotoIndex(s => ({ ...s, [p._id]: idx + 1 }))}>▶</button>
+                </div>
+
+                <div style={{ fontSize: 12, marginTop: 6 }}>
+                  Status: <b>{p.status}</b>{" "}
+                  {p.verified ? "✅ Verified" : "⚠️ Unverified"}
+                </div>
+
+                <div style={actions}>
+                  <button onClick={() => router.push(`/post-property?id=${p._id}`)}>Edit</button>
+                  <button onClick={() => deleteProperty(p._id)}>Delete</button>
+                  <button onClick={() => updateStatus(p._id, "sold")}>Sold</button>
+                  <button onClick={() => updateStatus(p._id, "rented")}>Rented</button>
+
+                  {!p.verified && (
+                    <button
+                      style={verifyBtn}
+                      onClick={() => startVerify(p._id)}
+                    >
+                      Verify (Live Camera)
+                    </button>
+                  )}
+                </div>
+
+                {verifyingId === p._id && (
+                  <div style={cameraBox}>
+                    <video ref={videoRef} autoPlay playsInline style={video} />
+                    <canvas ref={canvasRef} hidden />
+                    <button
+                      style={captureBtn}
+                      onClick={() => captureAndVerify(p._id)}
+                    >
+                      Capture & Verify
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 }
 
-/* ===== STYLES ===== */
-const pageStyle = { padding: 16, background: "#f7f7f7", minHeight: "100vh" };
-const title = { fontSize: 22, fontWeight: 900 };
-const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 16 };
-const card = { background: "#fff", borderRadius: 12, overflow: "hidden" };
-const img = { width: "100%", height: 170, objectFit: "cover" };
-const body = { padding: 12 };
-const row = { display: "flex", justifyContent: "space-between" };
-const location = { fontSize: 12, color: "#666" };
-const price = { fontSize: 16, fontWeight: 800 };
-const actions = { display: "flex", gap: 8, marginTop: 10 };
-const edit = { flex: 1, background: "#16a34a", color: "#fff", border: 0 };
-const verify = { flex: 1, background: "#2563eb", color: "#fff", border: 0 };
-const del = { flex: 1, background: "#ef4444", color: "#fff", border: 0 };
-const badgeGreen = { background: "#dcfce7", padding: "4px 8px", borderRadius: 999 };
-const badgeYellow = { background: "#fef3c7", padding: "4px 8px", borderRadius: 999 };
-const empty = { marginTop: 20, color: "#666" };
-const pagination = { display: "flex", justifyContent: "center", gap: 12, marginTop: 20 };
+/* ================= STYLES ================= */
+const wrap = { background: "#f1f5fb", minHeight: "100vh", padding: 20 };
+const card = { background: "#fff", padding: 16, borderRadius: 12 };
+const muted = { fontSize: 13, color: "#555" };
+const actions = { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 };
+
+const photoFrame = { width: 240, height: 160, background: "#eee", borderRadius: 10 };
+const photoMain = { width: "100%", height: "100%", objectFit: "cover", borderRadius: 10 };
+const noPhoto = { padding: 20, color: "#777" };
+const photoNav = { display: "flex", gap: 10, alignItems: "center", marginTop: 6 };
+
+const verifyBtn = { background: "#16a34a", color: "#fff", padding: "6px 10px", borderRadius: 8 };
+const cameraBox = { marginTop: 10, padding: 10, background: "#000", borderRadius: 12 };
+const video = { width: "100%", borderRadius: 10 };
+const captureBtn = { marginTop: 10, width: "100%", padding: 10, background: "#2563eb", color: "#fff", borderRadius: 10 };
