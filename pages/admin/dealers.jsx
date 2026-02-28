@@ -1,50 +1,41 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
-
-/* ================= KPI CONFIG ================= */
+import DealerRegistrationForm from "../../components/DealerRegistrationForm";
 
 const KPI_MAP = [
-  { key: "requests", label: "Dealer Requests", tab: "Requests", color: "#2563eb" },
-  { key: "active", label: "Active Dealers", tab: "Active", color: "#16a34a" },
-  { key: "blocked", label: "Blocked Dealers", tab: "Blocked", color: "#dc2626" },
-  { key: "kyc", label: "KYC Pending", tab: "KYC", color: "#ea580c" },
-  { key: "paid", label: "Paid Subscriptions", tab: "Subscriptions", color: "#0f766e" },
-  { key: "leads", label: "Total Leads", tab: "Performance", color: "#1e40af" },
-  { key: "revenue", label: "Revenue", tab: "Performance", color: "#7c3aed" },
+  { key: "requests", label: "Dealer Requests", color: "#2563eb", tab: "requests" },
+  { key: "active", label: "Active Dealers", color: "#16a34a", tab: "active" },
+  { key: "blocked", label: "Blocked Dealers", color: "#dc2626", tab: "blocked" },
+  { key: "kyc", label: "KYC Pending", color: "#ea580c", tab: "kyc" },
+  { key: "paid", label: "Paid Subscriptions", color: "#0f766e", tab: "paid" },
+  { key: "leads", label: "Total Leads", color: "#1e40af", tab: "performance" },
+  { key: "revenue", label: "Revenue", color: "#7c3aed", tab: "performance" },
 ];
 
-/* ================= PAGE ================= */
-
 export default function DealersAdmin() {
-  const [tab, setTab] = useState("Requests");
+
   const [rows, setRows] = useState([]);
   const [summary, setSummary] = useState({});
+  const [tab, setTab] = useState("requests");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [editDealer, setEditDealer] = useState(null);
+  const [viewDealer, setViewDealer] = useState(null);
+
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const [filters, setFilters] = useState({
-    q: "",
-    referral: "",
-    from: "",
-    to: "",
-  });
-
-  const [drawer, setDrawer] = useState(null);
-  const [chart, setChart] = useState([]);
-
-  const limit = 10;
-
-  /* ================= LOAD DATA ================= */
+  const limit = 20;
 
   async function loadData(p = 1) {
     const qs = new URLSearchParams({
-      tab: tab.toLowerCase(),
+      tab,
       page: p,
       limit,
-      q: filters.q,
-      referral: filters.referral,
-      from: filters.from,
-      to: filters.to,
+      q: search,
+      status,
     });
 
     const res = await fetch("/api/admin/dealers/master?" + qs);
@@ -60,157 +51,152 @@ export default function DealersAdmin() {
     loadData(1);
   }, [tab]);
 
-  /* ================= ACTION ================= */
-
-  async function actionDealer(id, action) {
-    if (!confirm(`Confirm ${action}?`)) return;
-
-    await fetch("/api/admin/dealers/master", {
+  async function bulkAction(action) {
+    await fetch("/api/admin/dealers/bulk", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
+      body: JSON.stringify({ ids: selectedIds, action }),
     });
 
+    setSelectedIds([]);
     loadData(page);
   }
 
-  /* ================= DOCUMENT DRAWER ================= */
+  function exportCSV(data = rows) {
+    if (!data.length) return;
 
-  async function openDocs(id) {
-    const res = await fetch(`/api/admin/dealers/documents?dealerId=${id}`);
-    const data = await res.json();
-    setDrawer(data);
+    const headers = [
+      "Name","Email","Mobile","Company",
+      "City","Status","Created Date"
+    ];
+
+    const csvRows = [
+      headers.join(","),
+      ...data.map(r =>
+        [
+          r.name,
+          r.email,
+          r.mobile,
+          r.company,
+          r.city,
+          r.status,
+          r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""
+        ]
+          .map(field => `"${(field ?? "").toString().replace(/"/g, '""')}"`)
+          .join(",")
+      )
+    ];
+
+    const blob = new Blob(["\uFEFF" + csvRows.join("\n")], {
+      type: "text/csv;charset=utf-8;"
+    });
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "dealers_export.csv";
+    link.click();
   }
-
-  /* ================= PERFORMANCE ================= */
-
-  async function loadPerformance() {
-    const res = await fetch("/api/admin/dealers/performance");
-    const data = await res.json();
-    setChart(data);
-  }
-
-  useEffect(() => {
-    if (tab === "Performance") loadPerformance();
-  }, [tab]);
-
-  /* ================= CSV ================= */
-
-  function exportCSV() {
-    window.open(`/api/admin/dealers/master?export=csv&tab=${tab.toLowerCase()}`);
-  }
-
-  function importCSV() {
-    alert("CSV import API connected.");
-  }
-
-  /* ================= UI ================= */
 
   return (
     <AdminLayout>
-      <h1 style={title}>Dealer Management</h1>
 
-      {/* ===== KPI DASHBOARD ===== */}
+      <h1 style={{ fontSize: 28, fontWeight: 900 }}>Dealer Management</h1>
+
+      {/* KPI GRID */}
       <div style={kpiGrid}>
-        {KPI_MAP.map((k) => (
+        {KPI_MAP.map(k => (
           <div
             key={k.key}
             style={{ ...kpiBox, borderLeft: `6px solid ${k.color}` }}
             onClick={() => setTab(k.tab)}
           >
-            <div style={kpiLabel}>{k.label}</div>
-            <div style={kpiValue}>{summary[k.key] || 0}</div>
+            <div>{k.label}</div>
+            <div style={{ fontSize: 26, fontWeight: 900 }}>
+              {summary[k.key] || 0}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* ===== FILTER BAR (BIG) ===== */}
+      {/* FILTER BAR */}
       <div style={filterBar}>
         <input
-          style={bigInput}
-          placeholder="Search Name / Email"
-          value={filters.q}
-          onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+          placeholder="Search name / email / mobile"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
         />
-
-        <input
-          style={bigInput}
-          placeholder="Referral Code"
-          value={filters.referral}
-          onChange={(e) => setFilters({ ...filters, referral: e.target.value })}
-        />
-
-        <input
-          type="date"
-          style={dateInput}
-          onChange={(e) => setFilters({ ...filters, from: e.target.value })}
-        />
-
-        <input
-          type="date"
-          style={dateInput}
-          onChange={(e) => setFilters({ ...filters, to: e.target.value })}
-        />
-
-        <button style={btnPrimary} onClick={() => loadData(1)}>
-          Apply
-        </button>
+        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="pending">Pending</option>
+          <option value="blocked">Blocked</option>
+        </select>
+        <button onClick={() => loadData(1)}>Apply</button>
+        <button onClick={() => exportCSV()}>Export CSV</button>
       </div>
 
-      {/* ===== CSV BAR ===== */}
-      <div style={csvBar}>
-        <button style={btnBlue} onClick={exportCSV}>Export CSV</button>
-        <label style={btnGray}>
-          Import CSV
-          <input type="file" hidden accept=".csv" onChange={importCSV} />
-        </label>
-      </div>
+      {/* BULK ACTIONS */}
+      {selectedIds.length > 0 && (
+        <div style={{ marginBottom: 15 }}>
+          <button onClick={() => bulkAction("approve")}>Bulk Approve</button>
+          <button onClick={() => bulkAction("block")}>Bulk Block</button>
+        </div>
+      )}
 
-      {/* ===== TABLE (BIG EXCEL STYLE) ===== */}
-      <div style={tableWrap}>
+      {/* EXCEL STYLE TABLE */}
+      <div style={{ overflowX: "auto" }}>
         <table style={table}>
           <thead style={thead}>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedIds(rows.map(r => r._id));
+                    } else {
+                      setSelectedIds([]);
+                    }
+                  }}
+                />
+              </th>
               <th>Name</th>
               <th>Email</th>
-              <th>Referral</th>
+              <th>Mobile</th>
+              <th>Company</th>
+              <th>City</th>
               <th>Status</th>
+              <th>Created</th>
               <th>Action</th>
             </tr>
           </thead>
 
           <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={5} style={empty}>No data found</td>
-              </tr>
-            )}
-
-            {rows.map((r) => (
-              <tr key={r._id}>
-                <td>{r.name || "-"}</td>
-                <td>{r.email}</td>
-                <td>{r.referralCode || "-"}</td>
+            {rows.map((r, i) => (
+              <tr key={r._id} style={{ background: i % 2 === 0 ? "#fff" : "#f3f4f6" }}>
                 <td>
-                  <span style={statusBadge(r.status)}>{r.status}</span>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(r._id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds([...selectedIds, r._id]);
+                      } else {
+                        setSelectedIds(selectedIds.filter(id => id !== r._id));
+                      }
+                    }}
+                  />
                 </td>
+                <td>{r.name}</td>
+                <td>{r.email}</td>
+                <td>{r.mobile || "-"}</td>
+                <td>{r.company || "-"}</td>
+                <td>{r.city || "-"}</td>
+                <td>{r.status}</td>
+                <td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "-"}</td>
                 <td>
-                  <button style={btnSmall} onClick={() => openDocs(r._id)}>Docs</button>
-
-                  {tab === "Requests" && (
-                    <>
-                      <button style={btnGreen} onClick={() => actionDealer(r._id,"approve")}>Approve</button>
-                      <button style={btnRed} onClick={() => actionDealer(r._id,"reject")}>Reject</button>
-                    </>
-                  )}
-
-                  {tab === "Active" && (
-                    <button style={btnRed} onClick={() => actionDealer(r._id,"block")}>Block</button>
-                  )}
-
-                  {tab === "Blocked" && (
-                    <button style={btnGreen} onClick={() => actionDealer(r._id,"unblock")}>Unblock</button>
-                  )}
+                  <button onClick={() => setEditDealer(r)}>Edit</button>
+                  <button onClick={() => setViewDealer(r)}>View</button>
                 </td>
               </tr>
             ))}
@@ -218,143 +204,168 @@ export default function DealersAdmin() {
         </table>
       </div>
 
-      {/* ===== PERFORMANCE ===== */}
-      {tab === "Performance" && (
-        <div style={perfBox}>
-          <h3>Monthly Performance</h3>
-          {chart.map((c) => (
-            <div key={c._id}>
-              Month {c._id} → Leads: {c.leads}, Revenue: ₹{c.revenue}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ===== PAGINATION ===== */}
-      <div style={pager}>
+      {/* PAGINATION */}
+      <div style={{ marginTop: 20 }}>
         <button disabled={page === 1} onClick={() => loadData(page - 1)}>Prev</button>
-        <b>Page {page} / {totalPages}</b>
+        <span> Page {page} / {totalPages} </span>
         <button disabled={page === totalPages} onClick={() => loadData(page + 1)}>Next</button>
       </div>
 
-      {/* ===== DOCUMENT DRAWER ===== */}
-      {drawer && (
-        <div style={drawerWrap}>
-          <h3>{drawer.name}</h3>
-          <p>{drawer.email}</p>
-
-          {drawer.documents.map((d, i) => (
-            <div key={i} style={{ marginBottom: 16 }}>
-              <b>{d.type.toUpperCase()}</b>
-              {d.url.endsWith(".pdf") ? (
-                <iframe src={d.url} width="100%" height="400" />
-              ) : (
-                <img src={d.url} style={{ maxWidth: "100%" }} />
-              )}
-            </div>
-          ))}
-
-          <button onClick={() => setDrawer(null)}>Close</button>
+      {/* EDIT DRAWER */}
+      {editDealer && (
+        <div style={drawer}>
+          <DealerRegistrationForm
+            initialData={editDealer}
+            adminMode={true}
+            onSave={async (formData) => {
+              await fetch("/api/admin/dealers/master", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ...formData,
+                  _id: editDealer._id
+                }),
+              });
+              setEditDealer(null);
+              loadData(page);
+            }}
+          />
+          <button onClick={() => setEditDealer(null)}>Close</button>
         </div>
       )}
+
+      {/* SECURE VIEW DRAWER */}
+      {viewDealer && (
+        <div style={drawer}>
+          <h2>Dealer Profile</h2>
+
+          <div style={profileHeader}>
+            <img
+              src={viewDealer.image || "/default-user.png"}
+              alt="profile"
+              style={profileImage}
+            />
+            <div>
+              <h3>{viewDealer.name}</h3>
+              <p>{viewDealer.company}</p>
+
+              <span style={{
+                ...badge,
+                background: viewDealer.status === "active" ? "#16a34a" : "#dc2626"
+              }}>
+                {viewDealer.status}
+              </span>
+
+              <span style={{
+                ...badge,
+                background: viewDealer.kycStatus === "approved" ? "#16a34a" : "#f59e0b"
+              }}>
+                KYC: {viewDealer.kycStatus}
+              </span>
+            </div>
+          </div>
+
+          <div style={excelGrid}>
+            <div style={cell}><b>Email</b><br />{viewDealer.email}</div>
+            <div style={cell}><b>Mobile</b><br />{viewDealer.mobile}</div>
+            <div style={cell}><b>City</b><br />{viewDealer.city}</div>
+            <div style={cell}><b>State</b><br />{viewDealer.state}</div>
+            <div style={cell}><b>Address</b><br />{viewDealer.address}</div>
+            <div style={cell}><b>Referral Code</b><br />{viewDealer.referralCode}</div>
+          </div>
+
+          <button style={{ marginTop: 20 }} onClick={() => setViewDealer(null)}>
+            Close
+          </button>
+        </div>
+      )}
+
     </AdminLayout>
   );
 }
 
-/* ================= STYLES ================= */
-
-const title = { fontSize: 28, fontWeight: 900 };
+/* STYLES */
 
 const kpiGrid = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
   gap: 16,
-  margin: "18px 0",
+  margin: "20px 0",
 };
 
 const kpiBox = {
   background: "#fff",
-  borderRadius: 14,
   padding: 20,
+  borderRadius: 10,
+  boxShadow: "0 4px 12px rgba(0,0,0,.08)",
   cursor: "pointer",
-  boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
 };
-
-const kpiLabel = { fontSize: 15, color: "#475569" };
-const kpiValue = { fontSize: 30, fontWeight: 900 };
 
 const filterBar = {
   display: "flex",
-  gap: 12,
+  gap: 10,
+  marginBottom: 20,
   flexWrap: "wrap",
-  margin: "18px 0",
 };
 
-const bigInput = {
-  padding: "14px 16px",
-  fontSize: 16,
-  minWidth: 240,
+const table = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: 14,
 };
 
-const dateInput = {
-  padding: "12px 14px",
-  fontSize: 15,
-};
-
-const btnPrimary = {
-  padding: "14px 22px",
-  background: "#1e40af",
+const thead = {
+  background: "#1f2937",
   color: "#fff",
-  fontSize: 16,
-  border: "none",
-};
-
-const csvBar = { display: "flex", gap: 14, marginBottom: 14 };
-
-const btnBlue = { padding: "10px 18px", background: "#2563eb", color: "#fff", border: "none" };
-const btnGray = { padding: "10px 18px", background: "#e5e7eb", cursor: "pointer" };
-
-const tableWrap = { background: "#fff", borderRadius: 14, overflowX: "auto" };
-const table = { width: "100%", borderCollapse: "collapse", fontSize: 18 };
-const thead = { background: "#e0ecff" };
-const empty = { padding: 28, textAlign: "center", fontSize: 18 };
-
-const pager = { marginTop: 20, display: "flex", gap: 20, fontSize: 17 };
-
-const btnSmall = { padding: "6px 10px", marginRight: 6 };
-const btnGreen = { padding: "6px 12px", background: "#16a34a", color: "#fff", border: "none" };
-const btnRed = { padding: "6px 12px", background: "#dc2626", color: "#fff", border: "none" };
-
-const statusBadge = (s) => ({
-  padding: "8px 14px",
-  borderRadius: 10,
-  fontSize: 15,
-  fontWeight: 800,
-  background:
-    s === "active"
-      ? "#dcfce7"
-      : s === "blocked"
-      ? "#fee2e2"
-      : "#ffedd5",
-});
-
-const perfBox = {
-  marginTop: 20,
-  background: "#fff",
-  padding: 20,
-  borderRadius: 14,
-  fontSize: 18,
-};
-
-const drawerWrap = {
-  position: "fixed",
+  position: "sticky",
   top: 0,
+};
+
+const drawer = {
+  position: "fixed",
   right: 0,
-  width: 420,
+  top: 0,
+  width: 600,
   height: "100%",
   background: "#fff",
   padding: 20,
   overflowY: "auto",
-  boxShadow: "-4px 0 12px rgba(0,0,0,.2)",
-  zIndex: 999,
+  boxShadow: "-6px 0 18px rgba(0,0,0,.2)",
+  zIndex: 9999,
+};
+
+const profileHeader = {
+  display: "flex",
+  gap: 20,
+  alignItems: "center",
+  marginBottom: 20,
+};
+
+const profileImage = {
+  width: 90,
+  height: 90,
+  borderRadius: "50%",
+  objectFit: "cover",
+};
+
+const badge = {
+  display: "inline-block",
+  color: "#fff",
+  padding: "4px 10px",
+  borderRadius: 20,
+  fontSize: 12,
+  marginRight: 8,
+};
+
+const excelGrid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, 1fr)",
+  gap: 12,
+};
+
+const cell = {
+  background: "#f9fafb",
+  padding: 12,
+  borderRadius: 6,
+  border: "1px solid #e5e7eb",
 };

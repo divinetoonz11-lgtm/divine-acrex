@@ -28,19 +28,21 @@ export const authOptions = {
   ],
 
   callbacks: {
+
     /* =========================
        🔑 JWT CALLBACK
        (LOGIN TIME ONLY)
     ========================= */
     async jwt({ token, user }) {
-      // ✅ normal page refresh / logout time
+
+      // normal refresh / logout time
       if (!user?.email) return token;
 
       const email = user.email.toLowerCase();
       const name = user.name || "";
 
       const client = await clientPromise;
-      const db = client.db();
+      const db = client.db("divineacres"); // ✅ FIXED DB NAME
       const users = db.collection("users");
 
       // 🔒 ADMIN HARD LOCK
@@ -48,6 +50,7 @@ export const authOptions = {
         token.email = email;
         token.role = "admin";
         token.name = name;
+        token.image = user.image || null; // ✅ IMAGE ADD
         return token;
       }
 
@@ -59,12 +62,14 @@ export const authOptions = {
           name,
           email,
           role: "user",
+          image: user.image || null,
           createdAt: new Date(),
         });
 
         token.email = email;
         token.role = "user";
         token.name = name;
+        token.image = user.image || null; // ✅ IMAGE ADD
         return token;
       }
 
@@ -72,6 +77,7 @@ export const authOptions = {
       token.email = email;
       token.role = dbUser.role || "user";
       token.name = dbUser.name || name;
+      token.image = dbUser.image || user.image || null; // ✅ IMAGE ADD
       return token;
     },
 
@@ -83,18 +89,15 @@ export const authOptions = {
         email: token.email,
         role: token.role,
         name: token.name,
+        image: token.image || null, // ✅ IMAGE PASS
       };
       return session;
     },
 
     /* =========================
        🔁 REDIRECT CALLBACK
-       ⚠️ LOGIN ONLY
-       ❌ LOGOUT SE KOI MATLAB NAHI
     ========================= */
     async redirect({ baseUrl, url }) {
-      // ✅ logout ke baad signOut callbackUrl use hota hai
-      // ✅ login ke baad sab users auth/redirect par jayenge
       if (url.startsWith(baseUrl)) return url;
       return baseUrl + "/auth/redirect";
     },

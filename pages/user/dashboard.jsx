@@ -2,7 +2,6 @@ import dynamic from "next/dynamic";
 import React, { useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
-
 import {
   LineChart,
   Line,
@@ -34,7 +33,6 @@ const Nav = ({ onClick, children }) => (
 function UserDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const fileRef = useRef(null);
 
   const [isMobile, setIsMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -44,6 +42,8 @@ function UserDashboard() {
     email: "",
     image: "/images/avatar.png",
   });
+
+  const [dealerStatus, setDealerStatus] = useState(null);
 
   const [listings, setListings] = useState([]);
   const [enquiries, setEnquiries] = useState([]);
@@ -73,15 +73,18 @@ function UserDashboard() {
     (async () => {
       const pr = await fetch("/api/user/profile");
       const pj = pr.ok ? await pr.json() : {};
+
       setProfile({
         name: pj.name || session.user.name,
         email: pj.email || session.user.email,
         image: pj.image || session.user.image || "/images/avatar.png",
       });
 
+      setDealerStatus(pj.status || null);
+
       const lr = await fetch("/api/user/my-properties");
       const lj = lr.ok ? await lr.json() : {};
-      setListings(lj.data || []);
+      setListings(Array.isArray(lj) ? lj : lj.data || []);
 
       const er = await fetch("/api/user/enquiries");
       setEnquiries(er.ok ? await er.json() : []);
@@ -112,7 +115,6 @@ function UserDashboard() {
   );
 
   /* ================= CHART DATA ================= */
-
   const months = Array.from({ length: 6 }).map((_, i) => {
     const d = new Date();
     d.setMonth(d.getMonth() - (5 - i));
@@ -131,13 +133,10 @@ function UserDashboard() {
     return months.map((m) => map[m] || 0);
   }
 
-  const propStats = countByMonth(listings);
-  const enquiryStats = countByMonth(enquiries);
-
   const chartData = months.map((m, i) => ({
     month: m,
-    properties: propStats[i],
-    enquiries: enquiryStats[i],
+    properties: countByMonth(listings)[i],
+    enquiries: countByMonth(enquiries)[i],
   }));
 
   return (
@@ -151,29 +150,14 @@ function UserDashboard() {
         </div>
       )}
 
-      {isMobile && menuOpen && (
-        <div style={overlay} onClick={() => setMenuOpen(false)} />
-      )}
-
       {/* SIDEBAR */}
-      <aside
-        style={{
-          width: 260,
-          background: "#0a2a5e",
-          color: "#fff",
-          padding: 18,
-          ...(isMobile
-            ? {
-                position: "fixed",
-                left: menuOpen ? 0 : -280,
-                top: 0,
-                height: "100%",
-                transition: "0.3s ease",
-                zIndex: 1200,
-              }
-            : {}),
-        }}
-      >
+      <aside style={{
+        width: 260,
+        background: "#0a2a5e",
+        color: "#fff",
+        padding: 18,
+      }}>
+
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <img
             src={profile.image}
@@ -197,6 +181,23 @@ function UserDashboard() {
         <Nav onClick={() => router.push("/user/saved")}>Saved</Nav>
         <Nav onClick={() => router.push("/user/profile")}>Profile</Nav>
 
+        {/* Become Dealer Logic */}
+        {session?.user?.role !== "dealer" && dealerStatus !== "pending" && (
+          <Nav onClick={() => router.push("/dealer/register")}>
+            Become a Dealer
+          </Nav>
+        )}
+
+        {dealerStatus === "pending" && (
+          <div style={{
+            padding: "10px 16px",
+            color: "#fbbf24",
+            fontWeight: 700
+          }}>
+            Dealer Approval Pending
+          </div>
+        )}
+
         <button
           style={{
             marginTop: 20,
@@ -215,31 +216,25 @@ function UserDashboard() {
       </aside>
 
       {/* MAIN */}
-      <main style={{ flex: 1, padding: isMobile ? "80px 16px 20px" : 24 }}>
+      <main style={{ flex: 1, padding: 24 }}>
 
-        {/* KPI */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
-            gap: 18,
-          }}
-        >
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))",
+          gap: 18,
+        }}>
           <Kpi title="My Properties" value={listings.length} color="#2563eb" />
           <Kpi title="Saved" value={saved.length} color="#7c3aed" />
           <Kpi title="Enquiries" value={enquiries.length} color="#16a34a" />
           <Kpi title="Referral Code" value={referralCode} color="#f59e0b" />
         </div>
 
-        {/* CHART */}
-        <div
-          style={{
-            background: "#fff",
-            padding: 24,
-            borderRadius: 20,
-            marginTop: 24,
-          }}
-        >
+        <div style={{
+          background: "#fff",
+          padding: 24,
+          borderRadius: 20,
+          marginTop: 24,
+        }}>
           <h3>Monthly Activity</h3>
 
           <ResponsiveContainer width="100%" height={300}>
@@ -249,18 +244,8 @@ function UserDashboard() {
               <YAxis allowDecimals={false} />
               <Tooltip />
               <Legend />
-              <Line
-                type="monotone"
-                dataKey="properties"
-                stroke="#2563eb"
-                strokeWidth={3}
-              />
-              <Line
-                type="monotone"
-                dataKey="enquiries"
-                stroke="#16a34a"
-                strokeWidth={3}
-              />
+              <Line type="monotone" dataKey="properties" stroke="#2563eb" strokeWidth={3} />
+              <Line type="monotone" dataKey="enquiries" stroke="#16a34a" strokeWidth={3} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -289,16 +274,6 @@ const hamburger = {
   fontSize: 24,
   marginRight: 16,
   cursor: "pointer",
-};
-
-const overlay = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100%",
-  height: "100%",
-  background: "rgba(0,0,0,0.4)",
-  zIndex: 1100,
 };
 
 export default dynamic(() => Promise.resolve(UserDashboard), { ssr: false });

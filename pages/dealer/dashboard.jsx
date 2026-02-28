@@ -41,23 +41,41 @@ export default function DealerDashboard() {
   if (status === "loading") return null;
   if (!session?.user || session.user.role !== "dealer") return null;
 
-  /* ===== PROFILE PHOTO ===== */
+  /* ===== PROFILE PHOTO FIXED (BASE64 VERSION) ===== */
   const handlePhotoClick = () => fileRef.current?.click();
 
   const handlePhotoSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append("photo", file);
+    const reader = new FileReader();
 
-    const res = await fetch("/api/dealer/upload-photo", {
-      method: "POST",
-      body: formData,
-    });
+    reader.onloadend = async () => {
+      try {
+        const res = await fetch("/api/dealer/upload-photo", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            photo: reader.result,
+          }),
+        });
 
-    if (res.ok) window.location.reload();
-    else alert("Photo upload failed");
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+          window.location.href = window.location.pathname;
+        } else {
+          alert(data?.message || "Photo upload failed");
+        }
+      } catch (err) {
+        console.error("Upload error:", err);
+        alert("Photo upload failed");
+      }
+    };
+
+    reader.readAsDataURL(file);
   };
 
   const supportMail = `mailto:divinetoonz11@gmail.com?subject=Divine%20Acres%20Dealer%20Support&body=Dealer:%20${session.user.email}`;
@@ -70,7 +88,6 @@ export default function DealerDashboard() {
   return (
     <div style={wrap}>
 
-      {/* ===== MOBILE HEADER ===== */}
       {isMobile && (
         <div style={mobileHeader}>
           <div style={hamburger} onClick={() => setMobileMenu(true)}>☰</div>
@@ -78,12 +95,10 @@ export default function DealerDashboard() {
         </div>
       )}
 
-      {/* ===== OVERLAY ===== */}
       {isMobile && mobileMenu && (
         <div style={overlay} onClick={() => setMobileMenu(false)} />
       )}
 
-      {/* ================= SIDEBAR ================= */}
       <aside
         style={{
           ...sidebar,
@@ -109,6 +124,7 @@ export default function DealerDashboard() {
           ref={fileRef}
           type="file"
           accept="image/*"
+          capture="environment"
           style={{ display: "none" }}
           onChange={handlePhotoSelect}
         />
@@ -134,7 +150,6 @@ export default function DealerDashboard() {
         </button>
       </aside>
 
-      {/* ================= MAIN ================= */}
       <main
         style={{
           ...main,
@@ -179,7 +194,7 @@ export default function DealerDashboard() {
 const Profile = ({ session, onClick, onPhotoClick }) => (
   <div style={profileBlock}>
     <img
-      src={session.user.image || "/images/avatar.png"}
+      src={`${session.user.image || "/images/avatar.png"}?v=${Date.now()}`}
       style={avatar}
       onClick={(e) => { e.stopPropagation(); onPhotoClick(); }}
     />
@@ -256,6 +271,7 @@ const avatar = {
   height: 60,
   borderRadius: "50%",
   border: "2px solid #fff",
+  cursor: "pointer",
 };
 
 const profileName = {

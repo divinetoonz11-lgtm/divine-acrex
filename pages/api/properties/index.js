@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { ObjectId } from "mongodb";
 
-/* ================== 413 FIX ================== */
 export const config = {
   api: {
     bodyParser: {
@@ -11,7 +10,6 @@ export const config = {
     },
   },
 };
-/* ============================================= */
 
 export default async function handler(req, res) {
   try {
@@ -20,21 +18,113 @@ export default async function handler(req, res) {
     const col = db.collection("properties");
 
     /* =====================================================
-       PUBLIC LISTING (NO LOGIN REQUIRED)
+       PUBLIC LISTING (FILTER ENABLED)
     ===================================================== */
     if (req.method === "GET" && req.query.role === "PUBLIC") {
+
       const page = Math.max(parseInt(req.query.page || "1", 10), 1);
       const limit = Math.min(
-        Math.max(parseInt(req.query.limit || "10", 10), 1),
+        Math.max(parseInt(req.query.limit || "12", 10), 1),
         50
       );
 
       const skip = (page - 1) * limit;
 
-      const filter = {
+      const {
+        category,
+        transaction,
+        propertyType,
+        bedrooms,
+        budgetMin,
+        budgetMax,
+        areaMin,
+        areaMax,
+        amenities,
+        search
+      } = req.query;
+
+      let filter = {
         isDeleted: { $ne: true },
         status: { $in: ["live", "LIVE", "Live"] },
       };
+
+      /* ========= CATEGORY (CASE INSENSITIVE) ========= */
+      if (category) {
+        filter.category = {
+          $regex: `^${category}$`,
+          $options: "i"
+        };
+      }
+
+      /* ========= TRANSACTION (BUY SHOULD MATCH SELL) ========= */
+      if (transaction) {
+
+        const t = transaction.toLowerCase();
+
+        if (t === "buy") {
+          filter.listingFor = {
+            $regex: "buy|sell",
+            $options: "i"
+          };
+        }
+
+        else if (t === "rent") {
+          filter.listingFor = {
+            $regex: "^rent$",
+            $options: "i"
+          };
+        }
+
+        else if (t === "lease") {
+          filter.listingFor = {
+            $regex: "^lease$",
+            $options: "i"
+          };
+        }
+      }
+
+      /* ========= PROPERTY TYPE ========= */
+      if (propertyType) {
+        filter.propertyType = {
+          $regex: `^${propertyType}$`,
+          $options: "i"
+        };
+      }
+
+      /* ========= BEDROOMS ========= */
+      if (bedrooms) {
+        filter.bhk = bedrooms;
+      }
+
+      /* ========= BUDGET RANGE ========= */
+      if (budgetMin || budgetMax) {
+        filter.price = {};
+        if (budgetMin) filter.price.$gte = Number(budgetMin);
+        if (budgetMax) filter.price.$lte = Number(budgetMax);
+      }
+
+      /* ========= AREA RANGE ========= */
+      if (areaMin || areaMax) {
+        filter.area = {};
+        if (areaMin) filter.area.$gte = Number(areaMin);
+        if (areaMax) filter.area.$lte = Number(areaMax);
+      }
+
+      /* ========= AMENITIES ========= */
+      if (amenities) {
+        const arr = amenities.split(",");
+        filter.amenities = { $all: arr };
+      }
+
+      /* ========= SMART SEARCH ========= */
+      if (search) {
+        filter.$or = [
+          { title: { $regex: search, $options: "i" } },
+          { city: { $regex: search, $options: "i" } },
+          { locality: { $regex: search, $options: "i" } },
+          { propertyType: { $regex: search, $options: "i" } }
+        ];
+      }
 
       const [rows, total] = await Promise.all([
         col
@@ -59,6 +149,7 @@ export default async function handler(req, res) {
     /* =====================================================
        AUTH REQUIRED
     ===================================================== */
+
     const session = await getServerSession(req, res, authOptions);
 
     if (!session?.user?.email) {
@@ -83,6 +174,7 @@ export default async function handler(req, res) {
 
     /* ================= CREATE PROPERTY ================= */
     if (req.method === "POST") {
+
       const userDoc = await db
         .collection("users")
         .findOne({ email: userEmail });
@@ -107,9 +199,9 @@ export default async function handler(req, res) {
         amenities,
         commercial,
         hotel,
-        photos,     // old support
-        images,     // new support
-        videos,     // new support
+        photos,
+        images,
+        videos,
       } = req.body;
 
       const finalImages = Array.isArray(images)
@@ -122,18 +214,14 @@ export default async function handler(req, res) {
 
       const newProperty = {
         title: title || "",
-
         postedBy: role === "dealer" ? "Dealer" : "Owner",
-
         listingFor,
         category,
         propertyType,
         furnishing,
-
         price: Number(price) || 0,
         bhk: bhk || "",
         area: Number(area) || 0,
-
         state,
         city,
         locality,
@@ -142,27 +230,20 @@ export default async function handler(req, res) {
         vastu,
         description,
         mobile,
-
         amenities: Array.isArray(amenities) ? amenities : [],
         commercial: commercial || null,
         hotel: hotel || null,
-
-        // ✅ FIXED MEDIA SYSTEM
         images: finalImages,
         videos: finalVideos,
         photosCount: finalImages.length,
-
         status: "pending",
         availability: true,
         isDeleted: false,
-
         ownerEmail: role === "user" ? userEmail : null,
         dealerEmail: role === "dealer" ? userEmail : null,
-
         ownerName: role === "user" ? userDoc?.name || null : null,
         dealerName: role === "dealer" ? userDoc?.name || null : null,
         companyName: role === "dealer" ? userDoc?.company || null : null,
-
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -173,55 +254,6 @@ export default async function handler(req, res) {
         ok: true,
         message: "Property created successfully",
       });
-    }
-
-    /* ================= SOFT DELETE ================= */
-    if (req.method === "DELETE") {
-      const { propertyId } = req.body;
-
-      if (!propertyId || !ObjectId.isValid(propertyId)) {
-        return res.status(400).json({ ok: false });
-      }
-
-      await col.updateOne(
-        {
-          _id: new ObjectId(propertyId),
-          $or: [{ ownerEmail: userEmail }, { dealerEmail: userEmail }],
-        },
-        {
-          $set: {
-            isDeleted: true,
-            updatedAt: new Date(),
-          },
-        }
-      );
-
-      return res.json({ ok: true });
-    }
-
-    /* ================= SOLD / RENTED ================= */
-    if (req.method === "PATCH") {
-      const { propertyId, status } = req.body;
-
-      if (!["sold", "rented"].includes(status)) {
-        return res.status(400).json({ ok: false });
-      }
-
-      await col.updateOne(
-        {
-          _id: new ObjectId(propertyId),
-          $or: [{ ownerEmail: userEmail }, { dealerEmail: userEmail }],
-        },
-        {
-          $set: {
-            status,
-            availability: false,
-            updatedAt: new Date(),
-          },
-        }
-      );
-
-      return res.json({ ok: true });
     }
 
     return res.status(405).json({

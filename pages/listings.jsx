@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/router";
 import ListingSearchAndFilters from "../components/ListingSearchAndFilters";
 import PropertyCard from "../components/PropertyCard";
 import SearchBar from "../components/SearchBar";
@@ -9,6 +9,21 @@ const PAGE_SIZE = 12;
 
 export default function ListingsPage() {
 
+  const router = useRouter();
+
+  const {
+    transaction,
+    category,
+    propertyType,
+    search,
+    bedrooms,
+    budgetMin,
+    budgetMax,
+    areaMin,
+    areaMax,
+    amenities
+  } = router.query;
+
   const [realProperties, setRealProperties] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -16,7 +31,42 @@ export default function ListingsPage() {
   /* ================= REAL FETCH ================= */
 
   useEffect(() => {
-    fetch(`/api/properties?role=PUBLIC&page=${page}&limit=${PAGE_SIZE}`)
+
+    if (!router.isReady) return;
+
+    const hasFilter =
+      transaction || category || propertyType || search ||
+      bedrooms || budgetMin || budgetMax ||
+      areaMin || areaMax || amenities;
+
+    let url;
+
+    if (hasFilter) {
+
+      const query = new URLSearchParams({
+        role: "PUBLIC",
+        page,
+        limit: PAGE_SIZE,
+        ...(transaction && { transaction }),
+        ...(category && { category }),
+        ...(propertyType && { propertyType }),
+        ...(search && { search }),
+        ...(bedrooms && { bedrooms }),
+        ...(budgetMin && { budgetMin }),
+        ...(budgetMax && { budgetMax }),
+        ...(areaMin && { areaMin }),
+        ...(areaMax && { areaMax }),
+        ...(amenities && { amenities })
+      }).toString();
+
+      url = `/api/properties?${query}`;
+
+    } else {
+
+      url = `/api/properties?role=PUBLIC&page=${page}&limit=${PAGE_SIZE}`;
+    }
+
+    fetch(url)
       .then(res => res.json())
       .then(res => {
 
@@ -65,7 +115,21 @@ export default function ListingsPage() {
 
       })
       .catch(() => setRealProperties([]));
-  }, [page]);
+
+  }, [
+    router.isReady,
+    page,
+    transaction,
+    category,
+    propertyType,
+    search,
+    bedrooms,
+    budgetMin,
+    budgetMax,
+    areaMin,
+    areaMax,
+    amenities
+  ]);
 
   /* ================= 10 DUMMY PROPERTIES ================= */
 
@@ -163,63 +227,6 @@ export default function ListingsPage() {
       companyName: "Urban Living Realty",
       isApproved: true,
       isDummy: true
-    },
-
-    {
-      id: "featured-2",
-      title: "Commercial Office in Andheri East",
-      location: "Andheri East, Mumbai",
-      price: "₹7 Lacs / month",
-      images: ["/images/featured-2.png"],
-      area: 2500,
-      amenities: ["Lift", "Power Backup", "CCTV"],
-      postedBy: "Dealer",
-      companyName: "Mumbai Commercial Hub",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "featured-3",
-      title: "Boutique Hotel in Lonavala",
-      location: "Lonavala, Maharashtra",
-      price: "₹12.00 Cr",
-      images: ["/images/featured-3.png"],
-      area: 18000,
-      amenities: ["Swimming Pool", "Restaurant", "Parking"],
-      postedBy: "Dealer",
-      companyName: "Hospitality Ventures",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "featured-7",
-      title: "Luxury Resort in Alibaug",
-      location: "Alibaug, Maharashtra",
-      price: "₹18.50 Cr",
-      images: ["/images/featured-7.png"],
-      area: 25000,
-      amenities: ["Private Beach", "Swimming Pool", "Restaurant"],
-      postedBy: "Dealer",
-      companyName: "Coastal Hospitality Group",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "listing-7",
-      title: "3 BHK in Borivali West",
-      location: "Borivali West, Mumbai",
-      price: "₹2.10 Cr",
-      images: ["/images/featured-1.png"],
-      bhk: 3,
-      area: 1300,
-      baths: 2,
-      amenities: ["Lift", "Parking", "Gym"],
-      postedBy: "Owner",
-      isApproved: true,
-      isDummy: true
     }
 
   ];
@@ -254,8 +261,14 @@ export default function ListingsPage() {
 
 function formatPrice(price) {
   const num = Number(price);
+
   if (!num || num <= 0) return "Price on Request";
-  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)} Cr`;
-  if (num >= 100000) return `₹${(num / 100000).toFixed(0)} Lacs`;
+
+  if (num >= 10000000)
+    return `₹${(num / 10000000).toFixed(2)} Cr`;
+
+  if (num >= 100000)
+    return `₹${(num / 100000).toFixed(2)} Lakh`;
+
   return `₹${num.toLocaleString("en-IN")}`;
 }

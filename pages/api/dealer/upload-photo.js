@@ -1,13 +1,23 @@
-import formidable from "formidable";
-import fs from "fs";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
 import clientPromise from "../../../lib/mongodb";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 
 export const config = {
-  api: { bodyParser: false },
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
 };
+
+/* ================= CLOUDINARY CONFIG ================= */
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -15,65 +25,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    /* ================= AUTH ================= */
     const session = await getServerSession(req, res, authOptions);
+
     if (!session?.user?.email) {
-      return res.status(401).json({ ok: false });
+      return res.status(401).json({ ok: false, message: "Unauthorized" });
     }
 
-    /* ================= FORM ================= */
-    const form = new formidable.IncomingForm({
-      keepExtensions: true,
-      multiples: false,
-    });
+    const { photo } = req.body;
 
-    const uploadDir = path.join(process.cwd(), "public/uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    if (!photo) {
+      return res.status(400).json({ ok: false, message: "No photo provided" });
     }
 
-    form.parse(req, async (err, fields, files) => {
-      if (err) {
-        console.error("Form parse error:", err);
-        return res.status(500).json({ ok: false, message: "Parse error" });
-      }
+    /* ===== Upload to Cloudinary ===== */
 
-      /* ===== FILE SAFE ACCESS ===== */
-      let file = files.photo;
-      if (Array.isArray(file)) file = file[0];
-
-      if (!file || !file.filepath) {
-        return res.status(400).json({ ok: false, message: "No file" });
-      }
-
-      const ext =
-        path.extname(file.originalFilename || "") || ".jpg";
-
-      const filename = `${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2)}${ext}`;
-
-      const newPath = path.join(uploadDir, filename);
-
-      fs.copyFileSync(file.filepath, newPath);
-
-      /* ================= DB UPDATE ================= */
-      const client = await clientPromise;
-      const db = client.db();
-
-      await db.collection("users").updateOne(
-        { email: session.user.email },
-        { $set: { image: `/uploads/${filename}` } }
-      );
-
-      /* ================= RESPONSE ================= */
-      return res.status(200).json({
-        ok: true,
-        image: `/uploads/${filename}`,
-      });
+    const uploadResponse = await cloudinary.uploader.upload(photo, {
+      folder: "divineacres/profile",
+      width: 300,
+      height: 300,
+      crop: "fill",
     });
-  } catch (e) {
-    console.error("Upload error:", e);
-    return res.status(500).json({ ok: false });
+
+    const imageUrl = uploadResponse.secure_url;
+
+    /* ===== Save URL in MongoDB ===== */
+
+    const client = await clientPromise;
+    const db = client.db("divineacres");
+
+    await db.collection("users").updateOne(
+      { email: session.user.email },
+      { $set: { image: imageUrl } }
+    );
+
+    return res.status(200).json({
+      ok: true,
+      image: imageUrl,
+    });
+
+  } catch (error) {
+    console.error("CLOUDINARY ERROR:", error);
+    return res.status(500).json({ ok: false, message: "Upload failed" });
   }
 }

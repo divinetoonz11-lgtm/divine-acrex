@@ -28,6 +28,14 @@ export default function PropertyLightbox({
 
   if (!open || !property) return null;
 
+  /* ================= NAME FIX ================= */
+
+  const displayName = isDealer
+    ? property?.dealerName || property?.companyName || property?.dealerEmail
+    : property?.ownerName || property?.ownerEmail;
+
+  /* ================= NAVIGATION ================= */
+
   const handleNext = () => {
     setActiveIndex((prev) =>
       prev < media.length - 1 ? prev + 1 : 0
@@ -40,7 +48,7 @@ export default function PropertyLightbox({
     );
   };
 
-  /* ================= SMART FEMALE AI VOICE ================= */
+  /* ================= AI FEMALE VOICE ================= */
 
   const playAIOverview = () => {
     if (!property) return;
@@ -48,8 +56,8 @@ export default function PropertyLightbox({
     window.speechSynthesis.cancel();
 
     const bhk = property?.bhk
-      ? `Spacious ${property.bhk} Bedroom Apartment`
-      : "Premium Property";
+      ? `${property.bhk} BHK property`
+      : "Premium property";
 
     const location =
       property?.locality || property?.city || "";
@@ -62,17 +70,14 @@ export default function PropertyLightbox({
       ? `Priced at rupees ${property.price}`
       : "";
 
-    const contactPerson =
-      property?.dealerName ||
-      property?.ownerName ||
-      "the seller";
+    const contactPerson = displayName || "the seller";
 
     const mobile = property?.mobile || "";
     const spokenNumber = mobile
       ? mobile.split("").join(" ")
       : "";
 
-    const summarySpeech = `
+    const speechText = `
       ${bhk} located in ${location}.
       ${area}.
       ${price}.
@@ -82,36 +87,28 @@ export default function PropertyLightbox({
       Thank you for choosing Divine Acres.
     `;
 
-    const speech = new SpeechSynthesisUtterance(summarySpeech);
+    const speech = new SpeechSynthesisUtterance(speechText);
 
     speech.lang = "en-IN";
     speech.rate = 1;
     speech.pitch = 1;
 
-    const startSpeaking = () => {
-      const voices = window.speechSynthesis.getVoices();
+    const voices = window.speechSynthesis.getVoices();
 
-      const femaleVoice =
-        voices.find(v =>
-          v.name.toLowerCase().includes("female") ||
-          v.name.toLowerCase().includes("zira") ||
-          v.name.toLowerCase().includes("samantha")
-        ) ||
-        voices.find(v => v.lang.includes("en"));
+    const femaleVoice =
+      voices.find(v =>
+        v.name.toLowerCase().includes("female") ||
+        v.name.toLowerCase().includes("zira") ||
+        v.name.toLowerCase().includes("samantha")
+      ) ||
+      voices.find(v => v.lang.includes("en"));
 
-      if (femaleVoice) {
-        speech.voice = femaleVoice;
-      }
-
-      window.speechSynthesis.speak(speech);
-      setAiSpeaking(true);
-    };
-
-    if (window.speechSynthesis.getVoices().length === 0) {
-      window.speechSynthesis.onvoiceschanged = startSpeaking;
-    } else {
-      startSpeaking();
+    if (femaleVoice) {
+      speech.voice = femaleVoice;
     }
+
+    window.speechSynthesis.speak(speech);
+    setAiSpeaking(true);
 
     speech.onend = () => {
       setAiSpeaking(false);
@@ -122,6 +119,8 @@ export default function PropertyLightbox({
     window.speechSynthesis.cancel();
     setAiSpeaking(false);
   };
+
+  /* ================= DESCRIPTION ================= */
 
   const description = property?.description || "";
   const shortDesc =
@@ -150,7 +149,9 @@ export default function PropertyLightbox({
                 />
               )
             ) : (
-              <div>No media uploaded</div>
+              <div style={{ color: "#fff", padding: 20 }}>
+                No media uploaded
+              </div>
             )}
           </div>
 
@@ -174,14 +175,19 @@ export default function PropertyLightbox({
           </p>
 
           <p>
-            Posted by <strong>{isDealer ? "Dealer" : "Owner"}</strong>
+            Posted by{" "}
+            <strong>
+              {isDealer
+                ? `🏢 ${displayName || "Dealer"}`
+                : `👤 ${displayName || "Owner"}`}
+            </strong>
           </p>
 
           <button onClick={onViewNumber} style={contactBtn}>
             View Number
           </button>
 
-          {/* AI Buttons */}
+          {/* AI BUTTONS */}
           {!aiSpeaking && (
             <button onClick={playAIOverview} style={aiBtn}>
               🤖 AI Voice Overview
@@ -194,7 +200,7 @@ export default function PropertyLightbox({
             </button>
           )}
 
-          {/* Description */}
+          {/* DESCRIPTION */}
           <div style={{ marginTop: 15 }}>
             <p style={{ lineHeight: 1.6 }}>
               {showFullDesc ? description : shortDesc}

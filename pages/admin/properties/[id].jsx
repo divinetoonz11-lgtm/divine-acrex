@@ -23,7 +23,7 @@ function AdminPropertyEditPage() {
       try {
         setLoading(true);
 
-        const res = await fetch(`/api/admin/property-control?id=${id}`);
+        const res = await fetch(`/api/properties/${id}`);
         const data = await res.json();
 
         if (data?.ok && data.data) {
@@ -111,7 +111,7 @@ function AdminPropertyEditPage() {
     setVideos(prev => prev.filter((_, i) => i !== index));
   };
 
-  /* ================= SAVE ================= */
+  /* ================= SAVE (FIXED API) ================= */
 
   async function saveChanges() {
     if (!property) return;
@@ -119,17 +119,16 @@ function AdminPropertyEditPage() {
     try {
       setSaving(true);
 
-      const res = await fetch("/api/admin/properties/update", {
+      const res = await fetch(`/api/properties/${property._id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: property._id,
           title: property.title,
           city: property.city,
           price: property.price,
           description: property.description,
           images,
-          videos,   // 🔥 IMPORTANT
+          videos,
         }),
       });
 
@@ -141,7 +140,7 @@ function AdminPropertyEditPage() {
       }
 
       alert("Property updated successfully");
-      router.push("/admin/property-control");
+      router.push("/admin/properties");
 
     } catch {
       alert("Save failed");
@@ -177,8 +176,11 @@ function AdminPropertyEditPage() {
       />
 
       <input
+        type="number"
         value={property.price || ""}
-        onChange={e => setProperty({ ...property, price: e.target.value })}
+        onChange={e =>
+          setProperty({ ...property, price: Number(e.target.value) })
+        }
         placeholder="Price"
         style={input}
       />
@@ -192,7 +194,6 @@ function AdminPropertyEditPage() {
         style={textarea}
       />
 
-      {/* ================= IMAGES ================= */}
       <h3 style={{ marginTop: 20 }}>Property Photos</h3>
       <input type="file" accept="image/*" onChange={onImageSelect} />
 
@@ -205,7 +206,6 @@ function AdminPropertyEditPage() {
         ))}
       </div>
 
-      {/* ================= VIDEOS ================= */}
       <h3 style={{ marginTop: 20 }}>Property Videos</h3>
       <input type="file" accept="video/*" onChange={onVideoSelect} />
 
@@ -232,8 +232,6 @@ export default function Page() {
     </AdminGuard>
   );
 }
-
-/* ================= STYLES ================= */
 
 const input = {
   padding: 10,

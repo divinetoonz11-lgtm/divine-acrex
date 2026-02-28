@@ -130,8 +130,13 @@ export default function PropertyHero({
 function formatPrice(price) {
   const p = Number(price);
   if (!p || p <= 0) return "Price on Request";
-  if (p >= 10000000) return `₹${(p / 10000000).toFixed(2)} Cr`;
-  if (p >= 100000) return `₹${(p / 100000).toFixed(0)} Lacs`;
+
+  if (p >= 10000000)
+    return `₹${(p / 10000000).toFixed(2)} Cr`;
+
+  if (p >= 100000)
+    return `₹${(p / 100000).toFixed(2)} Lakh`;
+
   return `₹${p.toLocaleString("en-IN")}`;
 }
 

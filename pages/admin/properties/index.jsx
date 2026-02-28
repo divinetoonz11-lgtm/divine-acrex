@@ -15,9 +15,14 @@ function AdminPropertiesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
 
+  // 🔥 FIXED AUTO VERIFY
+  const [autoVerify, setAutoVerify] = useState(null);
+
+  const [rowAction, setRowAction] = useState({});
+
   const limit = 20;
 
-  /* ================= LOAD DATA ================= */
+  /* ================= LOAD PROPERTIES ================= */
   useEffect(() => {
     loadData();
   }, [page, search, status]);
@@ -39,53 +44,68 @@ function AdminPropertiesPage() {
     setLoading(false);
   }
 
-  /* ================= STATUS UPDATE ================= */
-  async function updateStatus(id, newStatus) {
-    if (!confirm("Update property status?")) return;
+  /* ================= LOAD AUTO VERIFY ================= */
+  useEffect(() => {
+    async function loadAutoVerify() {
+      const res = await fetch("/api/admin/settings/auto-verify");
+      const data = await res.json();
+      if (data?.ok) {
+        setAutoVerify(data.value);
+      }
+    }
+    loadAutoVerify();
+  }, []);
 
-    const res = await fetch("/api/admin/properties/update-status", {
-      method: "PUT",
+  /* ================= TOGGLE AUTO VERIFY ================= */
+  async function toggleAutoVerify() {
+    const newValue = !autoVerify;
+
+    const res = await fetch("/api/admin/settings/auto-verify", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: newStatus }),
+      body: JSON.stringify({ value: newValue }),
     });
 
     const data = await res.json();
 
     if (data?.ok) {
-      loadData();
-    } else {
-      alert(data.message || "Status update failed");
+      setAutoVerify(newValue);
     }
   }
 
-  /* ================= VERIFY UPDATE ================= */
-  async function toggleVerify(id, currentValue) {
-    const res = await fetch("/api/admin/properties/update-status", {
+  /* ================= APPLY ROW ACTION ================= */
+  async function applyAction(id) {
+    const action = rowAction[id];
+    if (!action) return alert("Select action first");
+
+    await fetch("/api/admin/properties/update-status", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id,
-        verified: !currentValue,
+        status:
+          action === "live" ||
+          action === "pending" ||
+          action === "blocked"
+            ? action
+            : undefined,
+        verified:
+          action === "verify"
+            ? true
+            : action === "unverify"
+            ? false
+            : undefined,
       }),
     });
 
-    const data = await res.json();
-
-    if (data?.ok) {
-      loadData();
-    } else {
-      alert("Verify update failed");
-    }
+    setRowAction((prev) => ({ ...prev, [id]: "" }));
+    loadData();
   }
 
-  const formatCurrency = (num) => {
-    if (!num) return "₹ 0";
-    return "₹ " + Number(num).toLocaleString("en-IN");
-  };
+  const formatCurrency = (num) =>
+    "₹ " + Number(num || 0).toLocaleString("en-IN");
 
-  if (loading) {
-    return <AdminLayout>Loading...</AdminLayout>;
-  }
+  if (loading) return <AdminLayout>Loading...</AdminLayout>;
 
   return (
     <AdminLayout>
@@ -93,10 +113,10 @@ function AdminPropertiesPage() {
         Enterprise Property Management
       </h1>
 
-      {/* ================= FILTER ================= */}
-      <div style={filterBar}>
+      {/* ================= FILTER BAR ================= */}
+      <div style={topBar}>
         <input
-          placeholder="Search by title / city"
+          placeholder="Search title / city"
           value={search}
           onChange={(e) => {
             setPage(1);
@@ -118,6 +138,17 @@ function AdminPropertiesPage() {
           <option value="pending">Pending</option>
           <option value="blocked">Blocked</option>
         </select>
+
+        <button
+          disabled={autoVerify === null}
+          style={{
+            ...autoBtn,
+            background: autoVerify ? "#16a34a" : "#dc2626",
+          }}
+          onClick={toggleAutoVerify}
+        >
+          AUTO VERIFY: {autoVerify ? "ON" : "OFF"}
+        </button>
       </div>
 
       {/* ================= TABLE ================= */}
@@ -130,7 +161,7 @@ function AdminPropertiesPage() {
               <th style={th}>Price</th>
               <th style={th}>Status</th>
               <th style={th}>Verified</th>
-              <th style={th}>Actions</th>
+              <th style={th}>Manage</th>
             </tr>
           </thead>
 
@@ -141,29 +172,44 @@ function AdminPropertiesPage() {
                 <td style={td}>{p.city}</td>
                 <td style={td}>{formatCurrency(p.price)}</td>
 
-                {/* STATUS BADGE */}
                 <td style={td}>
-                  <span style={badge(p.status)}>
+                  <span style={statusBadge(p.status)}>
                     {p.status}
                   </span>
                 </td>
 
-                {/* VERIFIED BADGE */}
                 <td style={td}>
-                  <span
-                    style={{
-                      padding: "4px 8px",
-                      borderRadius: 6,
-                      color: "#fff",
-                      background: p.verified ? "#16a34a" : "#6b7280",
-                    }}
-                  >
+                  <span style={verifyBadge(p.verified)}>
                     {p.verified ? "Verified" : "Unverified"}
                   </span>
                 </td>
 
-                {/* ACTIONS */}
                 <td style={td}>
+                  <select
+                    value={rowAction[p._id] || ""}
+                    onChange={(e) =>
+                      setRowAction((prev) => ({
+                        ...prev,
+                        [p._id]: e.target.value,
+                      }))
+                    }
+                    style={dropdown}
+                  >
+                    <option value="">Select</option>
+                    <option value="live">Live</option>
+                    <option value="pending">Pending</option>
+                    <option value="blocked">Block</option>
+                    <option value="verify">Verify</option>
+                    <option value="unverify">Unverify</option>
+                  </select>
+
+                  <button
+                    style={applyBtn}
+                    onClick={() => applyAction(p._id)}
+                  >
+                    Apply
+                  </button>
+
                   <button
                     style={editBtn}
                     onClick={() =>
@@ -172,41 +218,32 @@ function AdminPropertiesPage() {
                   >
                     Edit
                   </button>
-
-                  <button
-                    style={liveBtn}
-                    onClick={() => updateStatus(p._id, "live")}
-                  >
-                    Live
-                  </button>
-
-                  <button
-                    style={pendingBtn}
-                    onClick={() => updateStatus(p._id, "pending")}
-                  >
-                    Pending
-                  </button>
-
-                  <button
-                    style={blockBtn}
-                    onClick={() => updateStatus(p._id, "blocked")}
-                  >
-                    Block
-                  </button>
-
-                  <button
-                    style={verifyBtn}
-                    onClick={() =>
-                      toggleVerify(p._id, p.verified)
-                    }
-                  >
-                    {p.verified ? "Unverify" : "Verify"}
-                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* ================= PAGINATION ================= */}
+      <div style={pagination}>
+        <button
+          disabled={page === 1}
+          onClick={() => setPage(page - 1)}
+        >
+          Prev
+        </button>
+
+        <span>
+          Page {page} / {totalPages}
+        </span>
+
+        <button
+          disabled={page === totalPages}
+          onClick={() => setPage(page + 1)}
+        >
+          Next
+        </button>
       </div>
     </AdminLayout>
   );
@@ -220,9 +257,9 @@ export default function Page() {
   );
 }
 
-/* ================= STYLES ================= */
+/* ================= UI ================= */
 
-const filterBar = {
+const topBar = {
   display: "flex",
   gap: 10,
   marginBottom: 20,
@@ -231,8 +268,8 @@ const filterBar = {
 
 const input = {
   padding: 10,
+  border: "1px solid #ddd",
   borderRadius: 6,
-  border: "1px solid #d1d5db",
 };
 
 const table = {
@@ -243,13 +280,30 @@ const table = {
 
 const th = {
   padding: 12,
-  background: "#f9fafb",
+  background: "#f3f4f6",
   borderBottom: "1px solid #e5e7eb",
 };
 
 const td = {
   padding: 12,
   borderBottom: "1px solid #e5e7eb",
+};
+
+const dropdown = {
+  padding: 6,
+  borderRadius: 6,
+  border: "1px solid #ccc",
+  marginRight: 6,
+};
+
+const applyBtn = {
+  padding: "6px 10px",
+  background: "#111827",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  marginRight: 6,
+  cursor: "pointer",
 };
 
 const editBtn = {
@@ -259,49 +313,24 @@ const editBtn = {
   border: "none",
   borderRadius: 6,
   cursor: "pointer",
-  marginRight: 5,
 };
 
-const liveBtn = {
-  padding: "6px 10px",
-  background: "#16a34a",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  marginRight: 5,
-};
-
-const pendingBtn = {
-  padding: "6px 10px",
-  background: "#f59e0b",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  marginRight: 5,
-};
-
-const blockBtn = {
-  padding: "6px 10px",
-  background: "#dc2626",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  marginRight: 5,
-};
-
-const verifyBtn = {
-  padding: "6px 10px",
-  background: "#111827",
+const autoBtn = {
+  padding: "8px 14px",
   color: "#fff",
   border: "none",
   borderRadius: 6,
   cursor: "pointer",
 };
 
-const badge = (status) => ({
+const pagination = {
+  marginTop: 20,
+  display: "flex",
+  gap: 15,
+  alignItems: "center",
+};
+
+const statusBadge = (status) => ({
   padding: "4px 8px",
   borderRadius: 6,
   color: "#fff",
@@ -311,4 +340,11 @@ const badge = (status) => ({
       : status === "pending"
       ? "#f59e0b"
       : "#dc2626",
+});
+
+const verifyBadge = (v) => ({
+  padding: "4px 8px",
+  borderRadius: 6,
+  color: "#fff",
+  background: v ? "#2563eb" : "#6b7280",
 });

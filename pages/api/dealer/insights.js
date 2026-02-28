@@ -1,16 +1,13 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import dbConnect from "../../../utils/dbConnect";
-import Property from "../../../models/Property";
-import Lead from "../../../models/Lead";
 import mongoose from "mongoose";
 
 /*
-DEALER INSIGHTS API – FINAL
-✔ Matches insights.jsx
-✔ Dealer-only
-✔ Dashboard ready
-✔ Safe defaults
+DEALER INSIGHTS API – PROPERTY LINKED VERSION
+✔ Works with current lead structure
+✔ No dealerEmail needed in leads
+✔ Enterprise safe
 */
 
 export default async function handler(req, res) {
@@ -22,50 +19,68 @@ export default async function handler(req, res) {
 
   try {
     await dbConnect();
+    const db = mongoose.connection.db;
 
-    const email = session.user.email;
+    const dealerEmail = session.user.email;
 
-    /* ================= PROPERTIES ================= */
-    const totalProperties = await Property.countDocuments({
-      dealerEmail: email,
-    });
+    /* ================= GET DEALER PROPERTIES ================= */
 
-    const activeProperties = await Property.countDocuments({
-      dealerEmail: email,
-      status: "active",
-    });
+    const dealerProperties = await db
+      .collection("properties")
+      .find({ dealerEmail: dealerEmail })
+      .toArray();
 
-    /* ================= LEADS ================= */
-    const totalLeads = await Lead.countDocuments({
-      dealerEmail: email,
-    });
+    const propertyIds = dealerProperties.map(p =>
+      p._id.toString()
+    );
 
-    const closedDeals = await Lead.countDocuments({
-      dealerEmail: email,
-      status: "CLOSED",
-    });
+    const totalProperties = dealerProperties.length;
 
-    /* ================= EARNINGS (SAFE PLACEHOLDER) ================= */
-    // Future: calculate from subscriptions + referral payouts
-    const totalEarnings = 0;
+    const activeProperties = dealerProperties.filter(
+      p => p.status === "active"
+    ).length;
 
-    /* ================= REFERRAL TEAM ================= */
-    // Future: calculate from referral collection
-    const referralTeam = 0;
+    const soldProperties = dealerProperties.filter(
+      p => p.status === "sold"
+    );
+
+    const totalEarnings = soldProperties.reduce(
+      (sum, p) => sum + (p.price || 0),
+      0
+    );
+
+    /* ================= LEADS (PROPERTY BASED) ================= */
+
+    let totalLeads = 0;
+    let closedDeals = 0;
+
+    if (propertyIds.length > 0) {
+      const leads = await db
+        .collection("leads")
+        .find({
+          propertyId: { $in: propertyIds }
+        })
+        .toArray();
+
+      totalLeads = leads.length;
+
+      closedDeals = leads.filter(
+        l => l.status === "closed"
+      ).length;
+    }
 
     return res.status(200).json({
       ok: true,
       totalLeads,
       closedDeals,
       totalEarnings,
-      referralTeam,
-
-      // extra (future dashboard use)
+      referralTeam: 0,
       meta: {
         totalProperties,
         activeProperties,
       },
     });
+
   } catch (err) {
     console.error("INSIGHTS API ERROR:", err);
     return res.status(500).json({

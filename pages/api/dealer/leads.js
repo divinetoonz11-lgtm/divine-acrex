@@ -4,11 +4,10 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 
 /*
-DEALER LEADS API – FINAL
-✔ Dealer only
-✔ Empty-safe
-✔ UI preview compatible
-✔ Future filters ready (month/year/date)
+DEALER LEADS API – FIXED (PROPERTY LINKED)
+✔ No dealerEmail dependency
+✔ Matches property owner
+✔ Works with current lead structure
 */
 
 export default async function handler(req, res) {
@@ -25,45 +24,45 @@ export default async function handler(req, res) {
     await dbConnect();
     const db = mongoose.connection.db;
 
-    /* ================= FILTERS (future-ready) ================= */
-    const { from, to, month, year } = req.query;
+    const dealerEmail = session.user.email;
 
-    const query = {
-      dealerEmail: session.user.email,
-    };
+    /* ================= GET DEALER PROPERTIES ================= */
 
-    if (from && to) {
-      query.createdAt = {
-        $gte: new Date(from),
-        $lte: new Date(to),
-      };
+    const dealerProperties = await db
+      .collection("properties")
+      .find({ dealerEmail: dealerEmail })
+      .project({ _id: 1 })
+      .toArray();
+
+    const propertyIds = dealerProperties.map(p => p._id.toString());
+
+    if (propertyIds.length === 0) {
+      return res.status(200).json({
+        ok: true,
+        leads: [],
+      });
     }
 
-    if (month && year) {
-      const m = parseInt(month) - 1; // 0 based
-      const y = parseInt(year);
-      query.createdAt = {
-        $gte: new Date(y, m, 1),
-        $lte: new Date(y, m + 1, 0, 23, 59, 59),
-      };
-    }
+    /* ================= FETCH LEADS BY PROPERTY ================= */
 
-    /* ================= FETCH LEADS ================= */
     const leads = await db
       .collection("leads")
-      .find(query)
+      .find({
+        propertyId: { $in: propertyIds }
+      })
       .sort({ createdAt: -1 })
       .limit(100)
       .toArray();
 
     /* ================= NORMALIZE FOR UI ================= */
+
     const safeLeads = leads.map((l) => ({
       _id: l._id,
-      buyerName: l.buyerName || "Unknown Buyer",
-      buyerPhone: l.buyerPhone || "-",
-      buyerEmail: l.buyerEmail || "-",
+      buyerName: l.name || "Unknown Buyer",
+      buyerPhone: l.phone || "-",
+      buyerEmail: l.email || "-",
       propertyTitle: l.propertyTitle || "Property Enquiry",
-      status: l.status || "NEW",
+      status: l.status || "new",
       createdAt: l.createdAt || new Date(),
     }));
 
@@ -71,8 +70,9 @@ export default async function handler(req, res) {
       ok: true,
       leads: safeLeads,
     });
+
   } catch (err) {
-    console.error(err);
+    console.error("LEADS API ERROR:", err);
     return res.status(500).json({
       ok: false,
       leads: [],

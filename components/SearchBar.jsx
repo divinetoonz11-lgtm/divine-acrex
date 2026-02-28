@@ -31,7 +31,6 @@ export default function SearchBar() {
   const [subType, setSubType] = useState("");
   const [keyword, setKeyword] = useState("");
 
-  // category change पर subtype reset
   useEffect(() => {
     setSubType("");
   }, [category]);
@@ -40,10 +39,10 @@ export default function SearchBar() {
     router.push({
       pathname: "/listings",
       query: {
-        t: transaction,
-        c: category,
-        type: subType,
-        q: keyword
+        transaction: transaction,
+        category: category,
+        propertyType: subType,
+        search: keyword
       }
     });
   }
@@ -52,7 +51,6 @@ export default function SearchBar() {
     <div className="sbWrap">
       <div className="sbBox">
 
-        {/* Buy / Rent / Lease */}
         <select
           className="sbSelect small"
           value={transaction}
@@ -63,7 +61,6 @@ export default function SearchBar() {
           <option>Lease</option>
         </select>
 
-        {/* Category */}
         <select
           className="sbSelect"
           value={category}
@@ -74,7 +71,6 @@ export default function SearchBar() {
           <option>Hotel</option>
         </select>
 
-        {/* Sub Category (Dynamic) */}
         <select
           className="sbSelect"
           value={subType}
@@ -86,7 +82,6 @@ export default function SearchBar() {
           ))}
         </select>
 
-        {/* Search input */}
         <input
           className="sbInput"
           placeholder={
@@ -99,13 +94,11 @@ export default function SearchBar() {
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
         />
 
-        {/* Button */}
         <button className="sbBtn" onClick={handleSearch}>
           Search
         </button>
       </div>
 
-      {/* CSS */}
       <style jsx>{`
         .sbWrap {
           background: linear-gradient(180deg, #1e3a8a, #274a9d);
@@ -163,7 +156,6 @@ export default function SearchBar() {
           background: #002b9e;
         }
 
-        /* Mobile */
         @media (max-width: 768px) {
           .sbBox {
             flex-wrap: wrap;

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import styles from "../styles/ListingFilters.module.css";
 import budgetPresets from "../lib/config/budgetPresets";
 
@@ -30,6 +31,9 @@ const AMENITIES = {
 /* ================= COMPONENT ================= */
 
 export default function ListingSearchAndFilters() {
+
+  const router = useRouter();
+
   const [transaction, setTransaction] = useState("Buy");
   const [category, setCategory] = useState("Residential");
   const [propertyType, setPropertyType] = useState("");
@@ -39,6 +43,8 @@ export default function ListingSearchAndFilters() {
   const [areaMin, setAreaMin] = useState("");
   const [areaMax, setAreaMax] = useState("");
   const [amenities, setAmenities] = useState({});
+
+  /* ================= RESET DEPENDENCY LOGIC ================= */
 
   useEffect(() => {
     setBudgetMin("");
@@ -54,7 +60,7 @@ export default function ListingSearchAndFilters() {
   }, [category]);
 
   const toggleAmenity = (a) =>
-    setAmenities((p) => ({ ...p, [a]: !p[a] }));
+    setAmenities((prev) => ({ ...prev, [a]: !prev[a] }));
 
   const resetAll = () => {
     setTransaction("Buy");
@@ -66,6 +72,29 @@ export default function ListingSearchAndFilters() {
     setAreaMin("");
     setAreaMax("");
     setAmenities({});
+    router.push("/listings");
+  };
+
+  const handleApply = () => {
+
+    const selectedAmenities = Object.keys(amenities)
+      .filter(a => amenities[a])
+      .join(",");
+
+    router.push({
+      pathname: "/listings",
+      query: {
+        transaction,
+        category,
+        ...(propertyType && { propertyType }),
+        ...(bedrooms && { bedrooms }),
+        ...(budgetMin && { budgetMin }),
+        ...(budgetMax && { budgetMax }),
+        ...(areaMin && { areaMin }),
+        ...(areaMax && { areaMax }),
+        ...(selectedAmenities && { amenities: selectedAmenities })
+      }
+    });
   };
 
   return (
@@ -191,8 +220,11 @@ export default function ListingSearchAndFilters() {
           <button className={styles.reset} onClick={resetAll}>
             Reset
           </button>
-          <button className={styles.apply}>Apply</button>
+          <button className={styles.apply} onClick={handleApply}>
+            Apply
+          </button>
         </div>
+
       </div>
     </aside>
   );
