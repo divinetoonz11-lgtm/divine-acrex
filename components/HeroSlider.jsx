@@ -11,6 +11,8 @@ export default function HeroSlider({ interval = 3500 }) {
     "/images/slider1.png",
     "/images/slider2.png",
     "/images/slider3.png",
+    "/images/slider4.png",
+
   ];
 
   const [index, setIndex] = useState(0);
