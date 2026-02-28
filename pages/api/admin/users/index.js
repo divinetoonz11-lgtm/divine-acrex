@@ -8,59 +8,59 @@ export default async function handler(req, res) {
   const db = (await clientPromise).db("divineacres");
 
   /* =========================================================
-     GET – STRICT DEALER KYC LIST
+     GET – UNIVERSAL USER LIST (ALL ROLES SUPPORTED)
   ========================================================= */
   if (req.method === "GET") {
     const {
       q,
-      month,
+      role,
       kycStatus,
       status,
+      from,
+      to,
       page = 1,
       limit = 20,
     } = req.query;
 
-    /* 🔥 STRICT FILTER (NO ROLE OVERRIDE ALLOWED) */
-    const query = {
-      $or: [
-        { role: "dealer" },
-        { dealerRequested: true }
-      ]
-    };
+    const query = {};
 
-    /* SEARCH */
-    if (q) {
-      query.$and = query.$and || [];
-      query.$and.push({
-        $or: [
-          { name: { $regex: q, $options: "i" } },
-          { email: { $regex: q, $options: "i" } },
-          { mobile: { $regex: q, $options: "i" } }
-        ]
-      });
+    /* ROLE FILTER */
+    if (role) {
+      query.role = role;
     }
 
     /* STATUS FILTER */
-    if (status) query.status = status;
-
-    /* KYC STATUS FILTER */
-    if (kycStatus) query.kycStatus = kycStatus;
-
-    /* MONTH FILTER */
-    if (month) {
-      const [y, m] = month.split("-");
-      query.createdAt = {
-        $gte: new Date(y, m - 1, 1),
-        $lt: new Date(y, m, 1),
-      };
+    if (status) {
+      query.status = status;
     }
 
-    /* PAGINATION */
+    /* KYC STATUS */
+    if (kycStatus) {
+      query.kycStatus = kycStatus;
+    }
+
+    /* DATE FILTER */
+    if (from || to) {
+      query.createdAt = {};
+      if (from) query.createdAt.$gte = new Date(from);
+      if (to) query.createdAt.$lte = new Date(to);
+    }
+
+    /* SEARCH */
+    if (q) {
+      query.$or = [
+        { name: { $regex: q, $options: "i" } },
+        { email: { $regex: q, $options: "i" } },
+        { mobile: { $regex: q, $options: "i" } },
+      ];
+    }
+
     const p = Math.max(parseInt(page), 1);
     const l = Math.min(parseInt(limit), 50);
     const skip = (p - 1) * l;
 
-    const users = await db.collection("users")
+    const users = await db
+      .collection("users")
       .find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
   }
 
   /* =========================================================
-     PATCH – UPDATE USER (SAFE)
+     PATCH – UPDATE USER
   ========================================================= */
   if (req.method === "PATCH") {
     const { id, name, mobile, role, status, kycStatus } = req.body;
