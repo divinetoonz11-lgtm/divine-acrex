@@ -12,6 +12,7 @@ const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm"];
 const RESIDENTIAL_TYPES = ["Flat / Apartment", "House / Villa", "Studio Apartment", "Row House", "Plot / Land", "Penthouse"];
 const COMMERCIAL_TYPES = ["Office", "Shop / Showroom", "Godown / Warehouse", "Factory", "Industrial Unit", "Retail Space"];
 const HOTEL_TYPES = ["Hotel", "Resort", "Guest House", "Hostel", "Service Apartment"];
+const AGRICULTURE_TYPES = ["Agricultural Land", "Farm Land", "Orchard", "Dairy Farm", "Plantation Land"];
 
 const HOTEL_ROOM_OPTIONS = ["1-10", "10-20", "20-40", "40-80", "80-150", "150+"];
 const HOTEL_STAR_OPTIONS = ["Any", "2", "3", "4", "5"];
@@ -325,7 +326,8 @@ if (!res.ok || !data.ok) {
   // determine type options
   const typeOptions = category === "residential" ? RESIDENTIAL_TYPES
     : category === "commercial" ? COMMERCIAL_TYPES
-    : category === "hotel" ? HOTEL_TYPES : [];
+    : category === "hotel" ? HOTEL_TYPES 
+    : category === "agricultural" ? AGRICULTURE_TYPES: [];
 
   return (
     <div style={{ minHeight: "100vh", background: "#e6f0ff", padding: "18px", fontFamily: "Inter, Arial, sans-serif" }}>
@@ -360,8 +362,7 @@ if (!res.ok || !data.ok) {
   <option>Owner</option>
   <option>Dealer</option>
   <option>Builder</option>
-  <option>Broker</option>
-</select>
+  </select>
 {postedBy === "Dealer" && (
   <>
     <label style={lbl}>Company Name *</label>
@@ -409,6 +410,7 @@ if (!res.ok || !data.ok) {
                 <option value="residential">Residential</option>
                 <option value="commercial">Commercial</option>
                 <option value="hotel">Hotel / Resort</option>
+                <option value="agricultural">Agricultural Land</option>
               </select>
 
               {category && (
@@ -421,23 +423,139 @@ if (!res.ok || !data.ok) {
                 </>
               )}
 
-              <label style={lbl}>Furnishing</label>
-              <select value={furnishing} onChange={e => setFurnishing(e.target.value)} style={inpt}>
-                <option value="">Select</option>
-                <option>Fully Furnished</option>
-                <option>Semi Furnished</option>
-                <option>Unfurnished</option>
-              </select>
+              {/* ===== Residential Furnishing ===== */}
+{category === "residential" && (
+  <>
+    <label style={lbl}>Furnishing</label>
+    <select
+      value={furnishing}
+      onChange={e => setFurnishing(e.target.value)}
+      style={inpt}
+    >
+      <option value="">Select</option>
+      <option>Fully Furnished</option>
+      <option>Semi Furnished</option>
+      <option>Unfurnished</option>
+    </select>
+  </>
+)}
+
+{/* ===== Commercial Setup ===== */}
+{category === "commercial" && (
+  <>
+    <label style={lbl}>Property Condition</label>
+    <select
+      value={furnishing}
+      onChange={e => setFurnishing(e.target.value)}
+      style={inpt}
+    >
+      <option value="">Select</option>
+      <option>Fully Furnished</option>
+      <option>Semi Furnished</option>
+      <option>Bare Shell</option>
+      <option>Warm Shell</option>
+    </select>
+  </>
+)}
+
+{/* ===== Hotel Business Status ===== */}
+{category === "hotel" && (
+  <>
+    <label style={lbl}>Business Status</label>
+    <select
+      value={furnishing}
+      onChange={e => setFurnishing(e.target.value)}
+      style={inpt}
+    >
+      <option value="">Select</option>
+      <option>Fully Operational</option>
+      <option>Running Business</option>
+      <option>Lease Model</option>
+      <option>Management Contract</option>
+      <option>Empty Property</option>
+    </select>
+  </>
+)}
+
+{/* ===== Agricultural Land Type ===== */}
+{category === "agricultural" && (
+  <>
+    <label style={lbl}>Land Type</label>
+    <select
+      value={furnishing}
+      onChange={e => setFurnishing(e.target.value)}
+      style={inpt}
+    >
+      <option value="">Select</option>
+      <option>Irrigated</option>
+      <option>Non-Irrigated</option>
+      <option>With Borewell</option>
+      <option>With Electricity</option>
+      <option>Road Access</option>
+    </select>
+  </>
+)}
 
               <div style={{ display: "flex", gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <label style={lbl}>Budget / Price (₹) *</label>
                   <input value={price} onChange={e => setPrice(e.target.value)} style={inpt} />
-                </div>
-                <div style={{ width: 110 }}>
-                  <label style={lbl}>BHK</label>
-                  <input value={bhk} onChange={e => setBhk(e.target.value)} style={inptSmall} />
-                </div>
+</div>
+
+                <div style={{ width: 180 }}>
+  <label style={lbl}>
+    {category === "residential" && "Unit Configuration"}
+    {category === "commercial" && "Layout Type"}
+    {category === "hotel" && "Room Structure"}
+    {category === "agricultural" && "Land Setup"}
+  </label>
+
+  <select
+    value={bhk}
+    onChange={e => setBhk(e.target.value)}
+    style={inptSmall}
+  >
+    <option value="">Select</option>
+
+    {category === "residential" && (
+      <>
+        <option value="1 RK">1 RK</option>
+        <option value="1 BHK">1 BHK</option>
+        <option value="2 BHK">2 BHK</option>
+        <option value="3 BHK">3 BHK</option>
+        <option value="4 BHK">4 BHK</option>
+        <option value="5+ BHK">5+ BHK</option>
+      </>
+    )}
+
+    {category === "commercial" && (
+      <>
+        <option value="Open Layout">Open Layout</option>
+        <option value="Partitioned">Partitioned</option>
+        <option value="Single Unit">Single Unit</option>
+        <option value="Multiple Units">Multiple Units</option>
+      </>
+    )}
+
+    {category === "hotel" && (
+      <>
+        <option value="10+ Rooms">10+ Rooms</option>
+        <option value="20+ Rooms">20+ Rooms</option>
+        <option value="50+ Rooms">50+ Rooms</option>
+        <option value="100+ Rooms">100+ Rooms</option>
+      </>
+    )}
+
+    {category === "agricultural" && (
+      <>
+        <option value="Open Land">Open Land</option>
+        <option value="With Farm House">With Farm House</option>
+        <option value="Plantation">Plantation</option>
+        <option value="Dairy Setup">Dairy Setup</option>
+      </>
+    )}
+  </select>
+</div>
                 <div style={{ width: 140 }}>
                   <label style={lbl}>Area (sqft)</label>
                   <input value={area} onChange={e => setArea(e.target.value)} style={inptSmall} />
