@@ -20,6 +20,13 @@ const CATEGORY_OPTIONS = {
     "Resort",
     "Guest House",
     "Hostel"
+  ],
+  Agricultural: [
+    "Agricultural Land",
+    "Farm Land",
+    "Orchard",
+    "Dairy Farm",
+    "Plantation Land"
   ]
 };
 
@@ -41,8 +48,8 @@ export default function SearchBar() {
       query: {
         transaction: transaction,
         category: category,
-        propertyType: subType,
-        search: keyword
+        ...(subType && { propertyType: subType }),
+        ...(keyword && { search: keyword })
       }
     });
   }
@@ -69,6 +76,7 @@ export default function SearchBar() {
           <option>Residential</option>
           <option>Commercial</option>
           <option>Hotel</option>
+          <option>Agricultural</option>
         </select>
 
         <select
@@ -87,6 +95,8 @@ export default function SearchBar() {
           placeholder={
             category === "Hotel"
               ? "Hotel / Resort name, City…"
+              : category === "Agricultural"
+              ? "Village, Taluka, District…"
               : "City, Locality, Project…"
           }
           value={keyword}

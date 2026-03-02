@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
       const page = Math.max(parseInt(req.query.page || "1", 10), 1);
       const limit = Math.min(
-        Math.max(parseInt(req.query.limit || "12", 10), 1),
+        Math.max(parseInt(req.query.limit || "20", 10), 1),
         50
       );
 
@@ -40,7 +40,9 @@ export default async function handler(req, res) {
         areaMin,
         areaMax,
         amenities,
-        search
+        search,
+        facing,
+        furnishing
       } = req.query;
 
       let filter = {
@@ -48,38 +50,24 @@ export default async function handler(req, res) {
         status: { $in: ["live", "LIVE", "Live"] },
       };
 
-      /* ========= CATEGORY (CASE INSENSITIVE) ========= */
+      /* ========= CATEGORY ========= */
       if (category) {
         filter.category = {
           $regex: `^${category}$`,
-          $options: "i"
+          $options: "i",
         };
       }
 
-      /* ========= TRANSACTION (BUY SHOULD MATCH SELL) ========= */
+      /* ========= TRANSACTION ========= */
       if (transaction) {
-
         const t = transaction.toLowerCase();
 
         if (t === "buy") {
-          filter.listingFor = {
-            $regex: "buy|sell",
-            $options: "i"
-          };
-        }
-
-        else if (t === "rent") {
-          filter.listingFor = {
-            $regex: "^rent$",
-            $options: "i"
-          };
-        }
-
-        else if (t === "lease") {
-          filter.listingFor = {
-            $regex: "^lease$",
-            $options: "i"
-          };
+          filter.listingFor = { $regex: "buy|sell", $options: "i" };
+        } else if (t === "rent") {
+          filter.listingFor = { $regex: "^rent$", $options: "i" };
+        } else if (t === "lease") {
+          filter.listingFor = { $regex: "^lease$", $options: "i" };
         }
       }
 
@@ -87,7 +75,7 @@ export default async function handler(req, res) {
       if (propertyType) {
         filter.propertyType = {
           $regex: `^${propertyType}$`,
-          $options: "i"
+          $options: "i",
         };
       }
 
@@ -96,7 +84,7 @@ export default async function handler(req, res) {
         filter.bhk = bedrooms;
       }
 
-      /* ========= BUDGET RANGE ========= */
+      /* ========= PRICE RANGE ========= */
       if (budgetMin || budgetMax) {
         filter.price = {};
         if (budgetMin) filter.price.$gte = Number(budgetMin);
@@ -108,6 +96,22 @@ export default async function handler(req, res) {
         filter.area = {};
         if (areaMin) filter.area.$gte = Number(areaMin);
         if (areaMax) filter.area.$lte = Number(areaMax);
+      }
+
+      /* ========= FACING ========= */
+      if (facing) {
+        filter.facing = {
+          $regex: `^${facing}$`,
+          $options: "i",
+        };
+      }
+
+      /* ========= FURNISHING ========= */
+      if (furnishing) {
+        filter.furnishing = {
+          $regex: `^${furnishing}$`,
+          $options: "i",
+        };
       }
 
       /* ========= AMENITIES ========= */
@@ -122,7 +126,8 @@ export default async function handler(req, res) {
           { title: { $regex: search, $options: "i" } },
           { city: { $regex: search, $options: "i" } },
           { locality: { $regex: search, $options: "i" } },
-          { propertyType: { $regex: search, $options: "i" } }
+          { propertyType: { $regex: search, $options: "i" } },
+          { category: { $regex: search, $options: "i" } },
         ];
       }
 
@@ -185,6 +190,7 @@ export default async function handler(req, res) {
         category,
         propertyType,
         furnishing,
+        facing,
         price,
         bhk,
         area,
@@ -199,17 +205,11 @@ export default async function handler(req, res) {
         amenities,
         commercial,
         hotel,
-        photos,
         images,
         videos,
       } = req.body;
 
-      const finalImages = Array.isArray(images)
-        ? images
-        : Array.isArray(photos)
-        ? photos
-        : [];
-
+      const finalImages = Array.isArray(images) ? images : [];
       const finalVideos = Array.isArray(videos) ? videos : [];
 
       const newProperty = {
@@ -219,6 +219,7 @@ export default async function handler(req, res) {
         category,
         propertyType,
         furnishing,
+        facing: facing || "",
         price: Number(price) || 0,
         bhk: bhk || "",
         area: Number(area) || 0,

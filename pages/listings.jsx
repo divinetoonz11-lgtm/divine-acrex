@@ -5,10 +5,9 @@ import PropertyCard from "../components/PropertyCard";
 import SearchBar from "../components/SearchBar";
 import styles from "../styles/ListingsPage.module.css";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 20;
 
 export default function ListingsPage() {
-
   const router = useRouter();
 
   const {
@@ -27,12 +26,14 @@ export default function ListingsPage() {
   const [realProperties, setRealProperties] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   /* ================= REAL FETCH ================= */
 
   useEffect(() => {
-
     if (!router.isReady) return;
+
+    setLoading(true);
 
     const hasFilter =
       transaction || category || propertyType || search ||
@@ -42,7 +43,6 @@ export default function ListingsPage() {
     let url;
 
     if (hasFilter) {
-
       const query = new URLSearchParams({
         role: "PUBLIC",
         page,
@@ -60,16 +60,13 @@ export default function ListingsPage() {
       }).toString();
 
       url = `/api/properties?${query}`;
-
     } else {
-
       url = `/api/properties?role=PUBLIC&page=${page}&limit=${PAGE_SIZE}`;
     }
 
     fetch(url)
       .then(res => res.json())
       .then(res => {
-
         const list = Array.isArray(res)
           ? res
           : Array.isArray(res?.data)
@@ -77,7 +74,6 @@ export default function ListingsPage() {
           : [];
 
         const mapped = list.map(p => {
-
           let firstImage = null;
 
           if (Array.isArray(p.photos) && p.photos.length > 0) {
@@ -112,9 +108,9 @@ export default function ListingsPage() {
 
         setRealProperties(mapped);
         setTotalPages(res?.totalPages || 1);
-
       })
-      .catch(() => setRealProperties([]));
+      .catch(() => setRealProperties([]))
+      .finally(() => setLoading(false));
 
   }, [
     router.isReady,
@@ -131,113 +127,10 @@ export default function ListingsPage() {
     amenities
   ]);
 
-  /* ================= 10 DUMMY PROPERTIES ================= */
-
-  const dummyProperties = [
-
-    {
-      id: "listing-1",
-      title: "2 BHK Flat for Sale in Bandra West",
-      location: "Bandra West, Mumbai",
-      price: "₹1.95 Cr",
-      images: ["/images/listing-example-1.png"],
-      bhk: 2,
-      area: 980,
-      baths: 2,
-      amenities: ["Lift", "Parking", "Security", "Power Backup"],
-      postedBy: "Dealer",
-      companyName: "Divine Acres Realty",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "listing-2",
-      title: "3 BHK Premium in Powai",
-      location: "Powai, Mumbai",
-      price: "₹2.75 Cr",
-      images: ["/images/listing-example-2.png"],
-      bhk: 3,
-      area: 1350,
-      baths: 2,
-      amenities: ["Swimming Pool", "Gym", "Club House"],
-      postedBy: "Owner",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "listing-3",
-      title: "2 BHK Rent in Andheri West",
-      location: "Andheri West, Mumbai",
-      price: "₹65,000 / month",
-      images: ["/images/listing-example-3.png"],
-      bhk: 2,
-      area: 850,
-      baths: 2,
-      amenities: ["Lift", "Parking", "Security"],
-      postedBy: "Dealer",
-      companyName: "Metro Homes",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "listing-4",
-      title: "4 BHK Luxury in Juhu",
-      location: "Juhu, Mumbai",
-      price: "₹5.00 Cr",
-      images: ["/images/listing-example-4.png"],
-      bhk: 4,
-      area: 1800,
-      baths: 3,
-      amenities: ["Swimming Pool", "Gym", "Lift"],
-      postedBy: "Dealer",
-      companyName: "Sudocaz India Pvt Ltd",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "listing-5",
-      title: "3 BHK in Malad West",
-      location: "Malad West, Mumbai",
-      price: "₹1.85 Cr",
-      images: ["/images/listing-example-5.png"],
-      bhk: 3,
-      area: 1200,
-      baths: 2,
-      amenities: ["Club House", "Gym", "Lift"],
-      postedBy: "Owner",
-      isApproved: true,
-      isDummy: true
-    },
-
-    {
-      id: "listing-6",
-      title: "2 BHK in Goregaon East",
-      location: "Goregaon East, Mumbai",
-      price: "₹1.55 Cr",
-      images: ["/images/listing-example-6.png"],
-      bhk: 2,
-      area: 900,
-      baths: 2,
-      amenities: ["Lift", "Security", "Power Backup"],
-      postedBy: "Dealer",
-      companyName: "Urban Living Realty",
-      isApproved: true,
-      isDummy: true
-    }
-
-  ];
-
-  /* ================= MERGED ================= */
+  /* ================= FINAL DATA ================= */
 
   const merged = useMemo(() => {
-    return [
-      ...(Array.isArray(realProperties) ? realProperties : []),
-      ...dummyProperties
-    ];
+    return Array.isArray(realProperties) ? realProperties : [];
   }, [realProperties]);
 
   return (
@@ -248,11 +141,54 @@ export default function ListingsPage() {
         <ListingSearchAndFilters />
 
         <div className={styles.resultsColumn}>
+          {loading && (
+            <div style={{ padding: 20 }}>Loading properties...</div>
+          )}
+
+          {!loading && merged.length === 0 && (
+            <div style={{ padding: 20 }}>
+              No properties found.
+            </div>
+          )}
+
           <div className={styles.cardsList}>
             {merged.map(p => (
               <PropertyCard key={p.id} {...p} />
             ))}
           </div>
+
+          {/* ================= PAGINATION ================= */}
+
+          {totalPages > 1 && (
+            <div
+              style={{
+                marginTop: 25,
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                justifyContent: "center"
+              }}
+            >
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(pn => (
+                <button
+                  key={pn}
+                  onClick={() => setPage(pn)}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 6,
+                    border: pn === page ? "2px solid #0039c9" : "1px solid #ccc",
+                    background: pn === page ? "#0039c9" : "#fff",
+                    color: pn === page ? "#fff" : "#000",
+                    fontWeight: 600,
+                    cursor: "pointer"
+                  }}
+                >
+                  {pn}
+                </button>
+              ))}
+            </div>
+          )}
+
         </div>
       </div>
     </div>
