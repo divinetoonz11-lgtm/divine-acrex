@@ -43,10 +43,8 @@ export default function DealerRegistrationForm({
     agreed: false,
   });
 
-  const [idProofFile, setIdProofFile] = useState(null);
-  const [addressProofFile, setAddressProofFile] = useState(null);
-
   /* ================= AUTO FILL ================= */
+
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
       setForm({
@@ -74,38 +72,46 @@ export default function DealerRegistrationForm({
     setForm({ ...form, [name]: type === "checkbox" ? checked : value });
   }
 
+  /* ================= SUBMIT ================= */
+
   async function handleSubmit(e) {
     e.preventDefault();
 
-    /* ================= ADMIN MODE ================= */
     if (adminMode) {
       if (onSave) onSave(form);
       return;
     }
 
-    if (!form.agreed) return alert("Please accept Terms & Conditions");
-
-    const formData = new FormData();
-
-    Object.keys(form).forEach((key) => {
-      formData.append(key, form[key]);
-    });
-
-    if (idProofFile) formData.append("idProof", idProofFile);
-    if (addressProofFile) formData.append("addressProof", addressProofFile);
-
-    const res = await fetch("/api/dealer/request", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok) {
-      alert("Submission failed");
+    if (!form.agreed) {
+      alert("Please accept Terms & Conditions");
       return;
     }
 
-    if (onSuccess) onSuccess();
+    try {
+      const res = await fetch("/api/dealer/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Submission failed");
+        return;
+      }
+
+      if (onSuccess) onSuccess();
+
+    } catch (error) {
+      console.error("Submit Error:", error);
+      alert("Server error. Please try again.");
+    }
   }
+
+  /* ================= UI ================= */
 
   return (
     <form onSubmit={handleSubmit} style={formBox}>
@@ -169,11 +175,6 @@ export default function DealerRegistrationForm({
         <option value="Driving License">Driving License</option>
       </select>
 
-      <input type="file" accept=".jpg,.jpeg,.png,.pdf"
-        onChange={(e)=>setIdProofFile(e.target.files[0])}
-        style={input}
-      />
-
       <select name="addressProofType" value={form.addressProofType} onChange={handleChange} style={input}>
         <option value="">Select Address Proof</option>
         <option value="Aadhaar">Aadhaar</option>
@@ -181,14 +182,9 @@ export default function DealerRegistrationForm({
         <option value="Utility Bill">Utility Bill</option>
       </select>
 
-      <input type="file" accept=".jpg,.jpeg,.png,.pdf"
-        onChange={(e)=>setAddressProofFile(e.target.files[0])}
-        style={input}
-      />
-
       {!adminMode && (
         <label style={{display:"flex",gap:8}}>
-          <input type="checkbox" name="agreed" onChange={handleChange}/>
+          <input type="checkbox" name="agreed" checked={form.agreed} onChange={handleChange}/>
           I agree to Terms & Conditions
         </label>
       )}
@@ -200,7 +196,8 @@ export default function DealerRegistrationForm({
   );
 }
 
-/* SAME UI */
+/* ================= STYLES ================= */
+
 const formBox = { display: "flex", flexDirection: "column", gap: 12 };
 const input = { padding: 12, borderRadius: 12, border: "1px solid #c7d2fe" };
 const btn = { padding: 14, borderRadius: 14, background: "#2563eb", color: "#fff", fontWeight: 800, border: "none" };
