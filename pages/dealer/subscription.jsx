@@ -73,7 +73,6 @@ export default function DealerSubscription() {
       return;
     }
 
-    // ✅ ONLY FIXED LINE (payment → payments)
     router.push(`/dealer/payments?plan=${plan.key}`);
   }
 
@@ -86,7 +85,6 @@ export default function DealerSubscription() {
           ✔ Referral earning available on all plans • ✔ Upgrade or downgrade anytime
         </p>
 
-        {/* TOGGLE */}
         <div style={toggleWrap}>
           <label style={radio}>
             <input
@@ -106,7 +104,6 @@ export default function DealerSubscription() {
           </label>
         </div>
 
-        {/* PLANS */}
         <div style={grid}>
           {PLANS.map((plan) => {
             const price =
@@ -157,8 +154,6 @@ export default function DealerSubscription() {
     </div>
   );
 }
-
-/* ---------- STYLES (UNCHANGED) ---------- */
 
 const title = { textAlign: "center", fontSize: 36, fontWeight: 900 };
 const topNote = { textAlign: "center", marginTop: 10, marginBottom: 20, fontSize: 14, fontWeight: 600, color: "#374151" };
