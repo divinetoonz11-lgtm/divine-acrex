@@ -6,135 +6,152 @@ export default function AboutUsPage() {
     <>
       <Head>
         <title>About Us | Divine Acres</title>
-        <meta
-          name="description"
-          content="About Divine Acres – A professional real estate technology platform based in Mumbai"
-        />
       </Head>
 
-      <div
-        style={{
-          maxWidth: "1000px",
-          margin: "40px auto",
-          padding: "0 16px",
-          fontFamily: "Arial, sans-serif",
-          lineHeight: 1.8,
-        }}
-      >
-        <h1 style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>
-          About Divine Acres
-        </h1>
+      <div style={{ fontFamily: "Arial, sans-serif", background: "#f7f9fc" }}>
 
-        <p>
-          <strong>Divine Acres</strong> is a modern digital real estate technology
-          platform developed to simplify property discovery, listing, and direct
-          connectivity between buyers, sellers, property owners, and verified
-          real estate dealers across India. The platform functions as a
-          technology-enabled intermediary, focused on transparency, efficiency,
-          and structured engagement within the real estate ecosystem.
-        </p>
+        {/* HERO */}
+        <div style={{
+          background: "linear-gradient(90deg,#0b1f3a,#1e3c72)",
+          color: "white",
+          padding: "60px 20px",
+          textAlign: "center"
+        }}>
+          <h1 style={{ fontSize: "38px" }}>About Divine Acres</h1>
+          <p>Building Trust • Creating Value • Redefining Real Estate</p>
+        </div>
 
-        <p>
-          Divine Acres is operated under{" "}
-          <strong>Sai Helimak TDI Solutions</strong>, a Mumbai-based proprietary
-          firm engaged in technology-driven business solutions. The platform is
-          designed with a strong emphasis on regulatory compliance, data
-          security, user trust, and scalable digital infrastructure.
-        </p>
+        <div style={{ maxWidth: "1100px", margin: "auto", padding: "20px" }}>
 
-        <h2 style={{ fontSize: 22, marginTop: 30 }}>
-          Company Information
-        </h2>
+          {/* COMPANY CONTENT (SAME) */}
+          <div style={box}>
+            <p><strong>Divine Acres</strong> is a next-generation real estate technology platform built with a vision to transform the way property discovery, listing, and transactions are conducted in today’s digital ecosystem.</p>
 
-        <ul>
-          <li>
-            <strong>Company Name:</strong> Sai Helimak TDI Solutions
-          </li>
-          <li>
-            <strong>Business Model:</strong> Proprietary Firm
-          </li>
-          <li>
-            <strong>Registered Location:</strong> Mumbai, Maharashtra, India
-          </li>
-          <li>
-            <strong>GST Number:</strong> 27AJNPA5022C1ZR
-          </li>
-          <li>
-            <strong>Platform Brand:</strong> Divine Acres
-          </li>
-        </ul>
+            <p>The platform is designed to create a seamless bridge between buyers, sellers, property owners, developers, and verified channel partners.</p>
 
-        <h2 style={{ fontSize: 22, marginTop: 30 }}>
-          Leadership
-        </h2>
+            <p>With a strong foundation in technology and market expertise, Divine Acres focuses on delivering a structured, transparent, and highly efficient property ecosystem.</p>
 
-        <p>
-          Divine Acres is co-founded and led by industry professionals with
-          complementary expertise in technology, operations, hospitality, and
-          real estate business development.
-        </p>
+            <p>Our approach is driven by a commitment to trust, innovation, and long-term value creation.</p>
 
-        <p>
-          <strong>Ms. Deepika Awasthi</strong>, Co-Founder & CEO of Divine Acres
-          and Proprietor of Sai Helimak TDI Solutions, brings professional
-          experience from the hospitality and service industry. She has worked
-          with <strong>Kempinski Hotels & Resorts Pvt. Ltd.</strong>, an
-          internationally recognized luxury hospitality brand. Her background
-          in premium customer experience, operational management, and corporate
-          process execution forms the foundation of Divine Acres’ service-driven,
-          compliance-oriented, and trust-focused platform philosophy.
-        </p>
+            <p>Divine Acres is not just a listing platform, but a complete real estate ecosystem supporting end-to-end engagement.</p>
+          </div>
 
-        <p>
-          <strong>Mr. Mahinder Sharma</strong>, Co-Founder of Divine Acres, brings
-          over <strong>20 years of extensive experience</strong> in the Indian
-          real estate sector. His professional expertise spans residential and
-          commercial real estate sales, property purchase advisory, dealer and
-          channel partner acquisition, strategic builder tie-ups, project
-          marketing, and end-to-end transaction facilitation.
-        </p>
+          {/* COMPANY INFO */}
+          <div style={box}>
+            <h2>Company Information</h2>
+            <ul>
+              <li><strong>Company Name:</strong> Sai Helimak TDI Solutions</li>
+              <li><strong>Location:</strong> Mumbai, Maharashtra, India</li>
+              <li><strong>GST Number:</strong> 27AJNPA5022C1ZR</li>
+              <li><strong>Brand:</strong> Divine Acres</li>
+            </ul>
+          </div>
 
-        <p>
-          With deep market understanding and long-standing relationships across
-          developers, builders, investors, and brokerage networks, Mr. Mahinder
-          Sharma plays a critical role in shaping Divine Acres’ real estate
-          market strategy, dealer ecosystem development, and on-ground business
-          expansion. His experience ensures that the platform aligns with
-          practical market realities while maintaining structured and ethical
-          business practices.
-        </p>
+          {/* LEADERSHIP */}
+          <h2 style={{ marginTop: "30px" }}>Leadership</h2>
 
-        <h2 style={{ fontSize: 22, marginTop: 30 }}>
-          Our Vision
-        </h2>
+          <div style={grid}>
 
-        <p>
-          Our vision is to build a reliable, transparent, and scalable real
-          estate technology platform where users can explore property
-          opportunities with confidence, while property owners, dealers, and
-          developers benefit from structured digital visibility, verified
-          engagement, and long-term value creation.
-        </p>
+            {/* Deepika */}
+            <div style={card}>
+              <h3>Ms. Deepika Awasthi</h3>
+              <p style={role}>Co-Founder & CEO</p>
 
-        <h2 style={{ fontSize: 22, marginTop: 30 }}>
-          Platform Disclaimer
-        </h2>
+              <p>Brings global hospitality experience including Kempinski Hotels & Resorts.</p>
+              <p>Specializes in customer experience, operations, and structured service delivery.</p>
+              <p>Drives brand vision, quality, and long-term growth strategy.</p>
 
-        <p>
-          Divine Acres does not act as a real estate broker, builder, developer,
-          or agent. The platform solely provides a digital interface for property
-          listings, information sharing, and user connectivity. All property
-          negotiations, agreements, and transactions are conducted directly
-          between users and the respective owners, developers, or authorized
-          representatives.
-        </p>
+              <ul>
+                <li>Customer Experience Leadership</li>
+                <li>Operational Excellence</li>
+                <li>Strategic Business Vision</li>
+              </ul>
+            </div>
 
-        <p style={{ marginTop: 30, fontWeight: "bold" }}>
-          — Divine Acres Team
-          <br />
-          (A unit of Sai Helimak TDI Solutions)
-        </p>
+            {/* Rahul */}
+            <div style={card}>
+              <h3>Mr. Rahul Srivastava</h3>
+              <p style={role}>Co-Founder</p>
+
+              <p>20+ years of real estate experience across India and Dubai.</p>
+              <p>Expert in developer partnerships, project marketing, and sales strategy.</p>
+              <p>Strong network with reputed developers and investors.</p>
+
+              <ul>
+                <li>India & Dubai Market Exposure</li>
+                <li>Developer Network</li>
+                <li>High-Value Transactions</li>
+              </ul>
+            </div>
+
+            {/* Inder */}
+            <div style={card}>
+              <h3>Mr. Inder Mohan Singh</h3>
+              <p style={role}>CTO</p>
+
+              <p>15+ years in software development and platform engineering.</p>
+              <p>Expert in scalable systems, full-stack development, and architecture.</p>
+              <p>Leads platform performance, security, and digital innovation.</p>
+
+              <ul>
+                <li>System Architecture</li>
+                <li>Scalable Platforms</li>
+                <li>Technology Leadership</li>
+              </ul>
+            </div>
+
+          </div>
+
+          {/* WHY */}
+          <div style={{ ...box, background: "#0b1f3a", color: "white" }}>
+            <h2>Why Divine Acres</h2>
+            <ul>
+              <li>Technology-Driven Real Estate Platform</li>
+              <li>Structured & Verified Listings</li>
+              <li>Strong Developer Network</li>
+              <li>Transparent Ecosystem</li>
+              <li>Scalable Growth Platform</li>
+            </ul>
+          </div>
+
+          {/* DISCLAIMER */}
+          <div style={box}>
+            <h2>Platform Disclaimer</h2>
+            <p>
+              Divine Acres operates as a technology platform and does not act as a broker or developer.
+              All transactions occur directly between respective parties.
+            </p>
+          </div>
+
+        </div>
       </div>
     </>
   );
 }
+
+const box = {
+  background: "white",
+  padding: "20px",
+  borderRadius: "10px",
+  marginBottom: "20px",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
+};
+
+const grid = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+  gap: "20px"
+};
+
+const card = {
+  background: "white",
+  padding: "20px",
+  borderRadius: "10px",
+  boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
+};
+
+const role = {
+  fontWeight: "bold",
+  color: "#555",
+  marginBottom: "10px"
+};

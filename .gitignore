@@ -12,8 +12,6 @@ pnpm-debug.log*
 # ===============================
 .env
 .env.*
-.env.local
-env.local
 
 # ===============================
 # Next.js
@@ -24,11 +22,9 @@ dist/
 build/
 
 # ===============================
-# Vercel / Railway
+# Vercel
 # ===============================
 .vercel/
-.vercel/*
-.vercel/output/
 
 # ===============================
 # OS / Editor
@@ -50,7 +46,7 @@ logs
 .tmp/
 
 # ===============================
-# Backup / Chat / Old files
+# Backup / Old files
 # ===============================
 _BACKUP_BEFORE_LOGIN_FIX/
 *.bak
@@ -58,4 +54,3 @@ _BACKUP_BEFORE_LOGIN_FIX/
 *.old
 *.chatbackup.js
 *.role-backup.jsx
-.vercel
