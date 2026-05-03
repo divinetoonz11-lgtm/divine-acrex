@@ -23,7 +23,7 @@ export default function AboutUsPage() {
 
         <div style={{ maxWidth: "1100px", margin: "auto", padding: "20px" }}>
 
-          {/* COMPANY CONTENT (SAME) */}
+          {/* COMPANY CONTENT */}
           <div style={box}>
             <p><strong>Divine Acres</strong> is a next-generation real estate technology platform built with a vision to transform the way property discovery, listing, and transactions are conducted in today’s digital ecosystem.</p>
 
@@ -65,22 +65,6 @@ export default function AboutUsPage() {
                 <li>Customer Experience Leadership</li>
                 <li>Operational Excellence</li>
                 <li>Strategic Business Vision</li>
-              </ul>
-            </div>
-
-            {/* Rahul */}
-            <div style={card}>
-              <h3>Mr. Rahul Srivastava</h3>
-              <p style={role}>Co-Founder</p>
-
-              <p>20+ years of real estate experience across India and Dubai.</p>
-              <p>Expert in developer partnerships, project marketing, and sales strategy.</p>
-              <p>Strong network with reputed developers and investors.</p>
-
-              <ul>
-                <li>India & Dubai Market Exposure</li>
-                <li>Developer Network</li>
-                <li>High-Value Transactions</li>
               </ul>
             </div>
 
